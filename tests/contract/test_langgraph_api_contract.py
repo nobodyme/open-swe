@@ -879,6 +879,14 @@ def _shape_for_mode(mode: str, part: Any) -> dict[str, Any]:
 
 @pytest.mark.parametrize("mode", DASHBOARD_STREAM_MODES)
 async def test_run_stream_mode_golden(contract_client: Any, mode: str) -> None:
+    import os
+
+    if mode == "events" and os.environ.get("CONTRACT_RUNTIME") == "embedded":
+        pytest.skip(
+            "divergence ledger: run-level stream_mode='events' (astream_events "
+            "firehose) has no app caller (D6) and is not wired in agent_runtime; "
+            "the mode is accepted-and-ignored there."
+        )
     thread_id = _tid()
     await contract_client.threads.create(thread_id=thread_id)
     parts = []

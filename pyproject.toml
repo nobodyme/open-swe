@@ -31,6 +31,9 @@ dependencies = [
     "langchain-google-genai>=4.2.4",
     "langchain-mcp-adapters>=0.3.0",
     "stagehand>=3.21.0",
+    "langgraph-checkpoint-postgres>=3.1",
+    "apscheduler>=3.10,<4",
+    "psycopg[binary,pool]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -57,7 +60,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent"]
+packages = ["agent", "agent_runtime"]
 
 [tool.ruff]
 line-length = 100
@@ -94,6 +97,6 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
-include = ["agent", "tests"]
+include = ["agent", "agent_runtime", "tests"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv", "ui", "**/.*"]
 reportMissingTypeStubs = false

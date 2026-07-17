@@ -52,6 +52,14 @@ developer's repo-root dev state.
 | `stream_events_transcript.json` | Live SSE transcript of `POST /threads/{id}/stream/events` (channels: values/updates/messages/tools/lifecycle): lifecycle running → values ×2 → lifecycle completed; SSE `id:` carries the session `seq`, body `event_id` carries the durable id. |
 | `join_stream_after_completion.json` | `runs.join_stream` on a finished run replays nothing (see ledger). |
 
+## Contract runtime switch (Phase 1)
+
+`CONTRACT_RUNTIME=platform` (default) boots `langgraph dev` — the golden
+baseline. `CONTRACT_RUNTIME=embedded` boots `uvicorn agent_runtime.app:app`
+over a fresh Postgres database (compose) and must match the same goldens.
+Both are Phase 1 acceptance gates; the platform run proves the suite wasn't
+bent to fit the new runtime.
+
 ## Divergence ledger (dev behavior Phase 1 may deliberately differ from)
 
 1. **Store nested filters**: dev's inmem store does NOT match dotted nested
@@ -78,6 +86,25 @@ developer's repo-root dev state.
    `runs.join_stream` on a finished run ends immediately. The dashboard only
    live-tails, so Phase 1's run-event log must match the live path; anything
    stronger (full history replay) would be a superset, recorded here if built.
+6. **Routes beyond the phase-1.md T4–T10 tables (D6 audit):** the runtime
+   also answers `GET /ok` (boot probe), `GET /threads/{t}/runs/{r}/join`,
+   `POST /threads/{t}/runs/stream`, and `GET /threads/{t}/runs/{r}/stream` —
+   each exists because THIS contract suite drives it (the D6-sanctioned
+   justification); no agent/ code calls them. Also recorded: `POST
+   /runs/cancel` with `run_ids` but no `thread_id` is a no-op (both app
+   callers always send thread_id), and `ThreadSearchBody.values` filtering
+   is accepted-and-ignored (no app caller filters threads by values).
+7. **Embedded runtime deltas (Phase 1, both deliberate):**
+   - `agent_runtime` SUPPORTS dotted nested store filters (Postgres store) —
+     a superset of dev's inmem store (ledger item 1); the app's flat filters
+     behave identically on both.
+   - Run-level `stream_mode="events"` (the `astream_events` firehose) is
+     accepted-and-ignored by `agent_runtime` (no app caller, no v2 channel —
+     D6); the per-mode golden test skips it under `CONTRACT_RUNTIME=embedded`.
+   - The v2 `messages` channel carries only streamed token chunks
+     (`messages/partial`); whole-message completes stay on the SDK stream —
+     matching the dev transcript's lifecycle+values-only shape for
+     non-streaming models.
 
 ## Cross-phase name ledger (binding, from docs/fast-api-migration/phase-0.md §1)
 
