@@ -152,8 +152,8 @@ async def test_interrupt_preserves_checkpoint(sdk_client: Any) -> None:
         multitask_strategy="interrupt",
         durability="sync",
     )
-    # Let at least one step checkpoint land.
-    await asyncio.sleep(1.2)
+    # Let at least one step checkpoint land (0.5s pickup delay + one step).
+    await asyncio.sleep(2.2)
     await sdk_client.runs.cancel(thread_id, first["run_id"], action="interrupt")
     final = await sdk_client.runs.get(thread_id, first["run_id"])
     for _ in range(40):
@@ -294,6 +294,34 @@ async def test_v2_seq_survives_process_restart(runtime_env: str, runtime_server:
         assert seqs == [1, 2, 3], f"seq must continue across restarts, got {seqs}"
     finally:
         await pool.close()
+
+
+async def test_pickup_delay_defers_first_model_call(
+    sdk_client: Any, runtime_server: Any, monkeypatch: Any
+) -> None:
+    """Pin the queue-pickup window (AGENT_RUNTIME_PICKUP_DELAY_MS): work
+    starts only after the delay — the platform-parity gap slack_debounce
+    relies on (phase-2.md completion record)."""
+    import time
+
+    monkeypatch.setenv("AGENT_RUNTIME_PICKUP_DELAY_MS", "800")
+    thread_id = _tid()
+    await sdk_client.threads.create(thread_id=thread_id)
+    started = time.monotonic()
+    run = await sdk_client.runs.create(
+        thread_id, "echo", input={"messages": [{"role": "user", "content": "delayed"}]}
+    )
+    await sdk_client.runs.join(thread_id, run["run_id"])
+    elapsed = time.monotonic() - started
+    assert elapsed >= 0.8, f"run finished in {elapsed:.2f}s — pickup delay not applied"
+
+    monkeypatch.setenv("AGENT_RUNTIME_PICKUP_DELAY_MS", "0")
+    started = time.monotonic()
+    run = await sdk_client.runs.create(
+        thread_id, "echo", input={"messages": [{"role": "user", "content": "instant"}]}
+    )
+    await sdk_client.runs.join(thread_id, run["run_id"])
+    assert time.monotonic() - started < 0.8
 
 
 async def test_rollback_is_rejected(sdk_client: Any) -> None:

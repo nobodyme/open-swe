@@ -48,9 +48,15 @@ jobs:
         run: make test
 
   e2e:
-    name: Playwright E2E
+    name: Playwright E2E (${{ matrix.runtime }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # platform = langgraph dev; embedded = agent_runtime over Postgres
+        # (docs/fast-api-migration/phase-2.md T6).
+        runtime: [platform, embedded]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -58,7 +64,7 @@ jobs:
         with:
           node-version: 22
       - uses: oven-sh/setup-bun@v2
-      - name: Install Python deps (langgraph dev runtime)
+      - name: Install Python deps
         run: uv sync --locked
       - name: Install Playwright + Chromium
         working-directory: tests/e2e
@@ -66,16 +72,19 @@ jobs:
           npm ci
           sudo rm -f /etc/apt/sources.list.d/azure-cli.list /etc/apt/sources.list.d/microsoft-prod.list
           npx playwright install --with-deps chromium
-      # Playwright's webServer boots `langgraph dev`; globalSetup builds the real
-      # ui/ SPA. The fake LLM/GitHub/Slack boundaries need no secrets.
+      # Playwright's webServer boots the selected runtime (run-embedded.sh
+      # composes Postgres itself on the embedded leg); globalSetup builds the
+      # real ui/ SPA. The fake LLM/GitHub/Slack boundaries need no secrets.
       - name: Run E2E
         working-directory: tests/e2e
         run: npx playwright test
+        env:
+          RUNTIME: ${{ matrix.runtime }}
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.runtime }}
           path: |
             tests/e2e/playwright-report
             tests/e2e/test-results

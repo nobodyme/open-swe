@@ -179,3 +179,73 @@ Plus: T5 smoke checklist executed in full with zero stuck-`busy` threads and a l
 | T5 — manual smoke pass (checklist execution + runtime fixes it surfaces) | M |
 | T6 — default flip (Makefile, CLAUDE.md/AGENTS.md, INSTALLATION.md touch, CI matrix) | S |
 | T7 — phase-boundary commit | S |
+
+---
+
+## 8. Completion record (2026-07-17)
+
+**The hard gate holds:** all six specs (14 tests) green on `RUNTIME=embedded`,
+run twice back-to-back (the run-embedded.sh DB drop/recreate proves
+hermeticity), and still green on `RUNTIME=platform`. Chaos suite green three
+consecutive runs; skipped cleanly without `RUN_CHAOS=1`. T5 smoke executed on
+the embedded runtime with the real LiteLLM model (minimax-m3): Slack →
+completion reply, same-thread follow-up, live v2 streaming + `since` resume
+with zero loss, mid-run cancel → `interrupted`, one-shot cron wakeup fired
+and stopped, thread-list sort/select fields correct, zero stuck-busy threads
+at exit. `make dev` boots agent_runtime + Postgres on :2024 (webapp mounted,
+threads API live); `make dev-platform` preserves `langgraph dev`; CI e2e is
+a platform/embedded matrix.
+
+**Runtime gaps T2/T5 surfaced — all fixed in `agent_runtime` (per plan):**
+
+- **`__is_for_execution__` injection.** langgraph-api injects the execution
+  gate at run pickup; without it, gated factories (get_agent) returned their
+  inert registration stub and the run executed a default-model agent with no
+  tools. The executor now passes the flag in the FACTORY config only — it
+  must not reach the astream config, or it leaks into checkpoint
+  configurables (run_stream_mode_checkpoints.json pins dev's shape).
+- **Worker-pickup delay** (`AGENT_RUNTIME_PICKUP_DELAY_MS`, default 500).
+  The platform's run queue has pickup latency; instant `create_task`
+  execution removed it, and `slack_debounce` proved it load-bearing: an
+  untagged follow-up posted ~170ms after dispatch was drained by the run's
+  FIRST before_model call before the second follow-up arrived, so the queue
+  never showed 2. The delay restores the platform's coalescing window
+  (chaos suite runs with it set to 0).
+- **Config `"env"` file honored** (langgraph.json contract): the runtime now
+  loads the config-declared dotenv (existing env wins) before the webapp
+  import — `make dev` parity with `langgraph dev`'s env handling.
+- **`.py`-path `http.app` targets** (`./tests/e2e/harness.py:app`) load with
+  the entry file's directory importable, matching dev's resolution.
+
+**T4 wiring:** `litellm:<model>` provider branch in `make_model` (plain
+chat-completions against `LITELLM_BASE_URL`, no Responses API, no gateway,
+`fallback_model_id_for` → None); env-gated model entry in `options.py`
+(`LLM_PROVIDER=litellm`) and env-overridable `DEFAULT_MODEL_ID`/`EFFORT`;
+`dev-mock.sh` gained the litellm and RUNTIME branches. No paid cloud API is
+reachable through any of it.
+
+**Smoke item 9 (GitHub/Linear):** GitHub PR flows are covered by the
+harness-driven e2e (mock GitHub) and webhook unit tests; Linear has no
+harness fake — unit webhook tests only, per plan (not a gate).
+
+**Chaos infra note:** the runtime-under-chaos subprocess must run in its own
+process group (`start_new_session=True`) — killpg on the shared group
+SIGKILLs pytest itself.
+
+**Adversarial review (13 findings) — all addressed.** The one significant
+hole: the `litellm:` model branch could silently fall back to
+api.openai.com with the shell's real `OPENAI_API_KEY` when `LITELLM_BASE_URL`
+was unset (empty base_url/api_key engage langchain's cloud defaults) — now
+fail-closed on BOTH gates (`LLM_PROVIDER=litellm` required, `LITELLM_BASE_URL`
+required, placeholder api_key so the env fallback can never engage), and the
+env-overridable `DEFAULT_MODEL_ID` is validated against `SUPPORTED_MODEL_IDS`
+at import. Also fixed: the env-file claim (langgraph dev's `.env` OVERRIDES
+the shell; `make dev` deliberately keeps shell-wins — documented in
+CLAUDE.md), pickup-delay clamped finite (≤30s), advisory-lock boot retry
+(post-SIGKILL release latency), chaos test 3's vacuous-pass hole + database
+leaks, `.py` graph entrypoints get their own sys.path insertion (no longer
+riding the webapp's), zero pickup delay in the unit/contract suites with a
+dedicated test pinning the delay, `make dev` gained `--reload` + INFO app
+logs + tmpfs/override caveats, and the "HMAC-signed" wording corrected to
+bearer-token. Re-verified after all fixes: runtime suite 31 passed, contract
+embedded 27 passed, chaos 3/3, embedded e2e 14/14.

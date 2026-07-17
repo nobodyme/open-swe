@@ -48,11 +48,19 @@ def runtime_env(postgres_dsn: str) -> Iterator[str]:  # noqa: F811 - pytest fixt
     """
     saved = {
         key: os.environ.get(key)
-        for key in ("DATABASE_URL", "AGENT_RUNTIME_CONFIG", "AGENT_RUNTIME_NO_WEBAPP")
+        for key in (
+            "DATABASE_URL",
+            "AGENT_RUNTIME_CONFIG",
+            "AGENT_RUNTIME_NO_WEBAPP",
+            "AGENT_RUNTIME_PICKUP_DELAY_MS",
+        )
     }
     os.environ["DATABASE_URL"] = postgres_dsn
     os.environ["AGENT_RUNTIME_CONFIG"] = str(RUNTIME_DIR / "runtime.test.json")
     os.environ["AGENT_RUNTIME_NO_WEBAPP"] = "1"
+    # No queue-pickup latency in unit tests (a dedicated test pins the delay
+    # behavior; the e2e suite runs with the default).
+    os.environ["AGENT_RUNTIME_PICKUP_DELAY_MS"] = "0"
     yield postgres_dsn
     for key, value in saved.items():
         if value is None:

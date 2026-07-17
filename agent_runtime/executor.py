@@ -51,6 +51,29 @@ def _runtime_version() -> str:
     return "agent-runtime/0.1"
 
 
+def _pickup_delay_seconds() -> float:
+    """Worker-pickup latency, modeling the platform's run queue.
+
+    langgraph-api runs sit in a queue until a worker polls them; that gap is
+    load-bearing — e.g. Slack's untagged-follow-up coalescing relies on
+    messages queued right after dispatch landing BEFORE the run's first
+    model call drains the queue (slack_debounce e2e). Instant create_task
+    execution removed the gap; this restores it.
+    """
+    import math
+    import os
+
+    raw = os.environ.get("AGENT_RUNTIME_PICKUP_DELAY_MS", "500")
+    try:
+        delay_ms = float(raw)
+    except ValueError:
+        return 0.5
+    if not math.isfinite(delay_ms):
+        return 0.5
+    # Bounded: a huge value would wedge runs in a state no sweep covers.
+    return min(max(0.0, delay_ms), 30_000.0) / 1000.0
+
+
 class ThreadBusyError(Exception):
     pass
 
@@ -391,7 +414,14 @@ class RunExecutor:
             raw_config = raw.get("config") or {}
             base_configurable = dict(raw_config.get("configurable") or {})
             graph_name = self.graph_name_for_run({**runs[0], "kwargs": raw})
-        configurable = {**base_configurable, "thread_id": thread_id}
+        configurable = {
+            **base_configurable,
+            "thread_id": thread_id,
+            # State reads must resolve the same graph shape the run built —
+            # without the execution flag, gated factories return their inert
+            # registration stub whose channel mapping reads back empty.
+            "__is_for_execution__": True,
+        }
         config = {"configurable": configurable}
         graph, cm = await self._registry.resolve_managed(graph_name, config)
         return graph, cm, config
@@ -475,9 +505,19 @@ class RunExecutor:
         graph_name = self.graph_name_for_run(run)
         graph_cm: Any | None = None
         try:
+            # Queue-pickup gap (see _pickup_delay_seconds). Cancellable: an
+            # arbitration landing here interrupts before any work starts.
+            await asyncio.sleep(_pickup_delay_seconds())
             run = await self._enrich_kwargs_on_start(run)
             config = self._run_config(run)
-            graph, graph_cm = await self._registry.resolve_managed(graph_name, config)
+            # The execution gate goes to the FACTORY config only — dev keeps
+            # it out of the run config, so it never lands in checkpoint
+            # configurables (run_stream_mode_checkpoints.json pins that).
+            factory_config = {
+                **config,
+                "configurable": {**config["configurable"], "__is_for_execution__": True},
+            }
+            graph, graph_cm = await self._registry.resolve_managed(graph_name, factory_config)
             await self._emit(thread_id, run_id, lifecycle_event(run_id, "running", graph_name))
             run_input = self._resolve_input(kwargs)
             durability = kwargs.get("durability")

@@ -1,4 +1,4 @@
-.PHONY: all format format-check lint typecheck test tests integration_tests contract-test help run dev
+.PHONY: all format format-check lint typecheck test tests integration_tests contract-test help run dev dev-platform
 
 # Default target executed when no arguments are given to make.
 all: help
@@ -7,7 +7,25 @@ all: help
 # DEVELOPMENT
 ######################
 
+# Default dev runtime: the self-hosted MIT agent_runtime over Postgres
+# (docs/fast-api-migration/phase-2.md T6). Serves all graphs + the webapp on
+# :2024 — the same origin LANGGRAPH_URL points at.
+# NOTE: the bundled Postgres (docker-compose.test.yml) is tmpfs-backed — dev
+# state evaporates when the container restarts, matching langgraph dev's
+# forget-everything behavior. Overriding DEV_DATABASE_URL points uvicorn at
+# your own Postgres; you then own creating that database (the compose-up and
+# CREATE DATABASE lines below still target the bundled instance).
+DEV_DATABASE_URL ?= postgresql://openswe:openswe@localhost:54329/openswe_dev
+
 dev:
+	docker compose -f docker-compose.test.yml up -d --wait
+	uv run python -c "import psycopg; c = psycopg.connect('postgresql://openswe:openswe@localhost:54329/openswe_test', autocommit=True); c.execute('CREATE DATABASE openswe_dev') if not c.execute(\"SELECT 1 FROM pg_database WHERE datname='openswe_dev'\").fetchone() else None"
+	DATABASE_URL=$(DEV_DATABASE_URL) AGENT_RUNTIME_LOG_LEVEL=$${AGENT_RUNTIME_LOG_LEVEL:-info} \
+		uv run uvicorn agent_runtime.app:app --host 127.0.0.1 --port 2024 --reload
+
+# The Elastic-licensed langgraph dev server, kept available during the
+# migration for comparison; not the default.
+dev-platform:
 	uv run langgraph dev
 
 run:
@@ -68,7 +86,8 @@ typecheck:
 
 help:
 	@echo '----'
-	@echo 'dev                          - run LangGraph dev server'
+	@echo 'dev                          - run agent_runtime + Postgres (default dev runtime)'
+	@echo 'dev-platform                 - run the langgraph dev server (Elastic-licensed)'
 	@echo 'run                          - run webhook server'
 	@echo 'install                      - install dependencies (incl. dev extras)'
 	@echo 'format                       - run code formatters'

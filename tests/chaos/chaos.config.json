@@ -1,0 +1,9 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "python_version": "3.12",
+  "dependencies": ["."],
+  "graphs": {
+    "slow": "./tests/chaos/slow_graph.py:graph",
+    "agent": "./tests/chaos/slow_graph.py:graph"
+  }
+}

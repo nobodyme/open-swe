@@ -48,10 +48,21 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from psycopg import AsyncConnection
 
     guard_conn = await AsyncConnection.connect(runtime_config.database_url(), autocommit=True)
-    guard_row = await (
-        await guard_conn.execute("SELECT pg_try_advisory_lock(hashtext('agent_runtime'))")
-    ).fetchone()
-    if not (guard_row and guard_row[0]):
+    # Bounded retry: after a SIGKILL the dead holder's lock releases when
+    # Postgres notices the closed socket — usually instant, occasionally a
+    # few seconds (chaos restarts hit exactly this window).
+    import asyncio as _asyncio
+
+    acquired = False
+    for _ in range(20):
+        guard_row = await (
+            await guard_conn.execute("SELECT pg_try_advisory_lock(hashtext('agent_runtime'))")
+        ).fetchone()
+        if guard_row and guard_row[0]:
+            acquired = True
+            break
+        await _asyncio.sleep(0.5)
+    if not acquired:
         await guard_conn.close()
         await pool.close()
         raise RuntimeError(
@@ -113,6 +124,36 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    # uvicorn configures only its own loggers; app loggers (agent.*,
+    # agent_runtime.*) need a root handler to be visible in dev.
+    if os.environ.get("AGENT_RUNTIME_LOG_LEVEL"):
+        logging.basicConfig(
+            level=os.environ["AGENT_RUNTIME_LOG_LEVEL"].upper(),
+            format="%(asctime)s.%(msecs)03d %(name)s %(message)s",
+            datefmt="%H:%M:%S",
+        )
+
+    # Load the config's "env" file before the webapp import reads its
+    # configuration. DELIBERATE divergence from langgraph dev: dev's .env
+    # OVERRIDES the shell; here the shell wins (override=False) — make dev's
+    # exported DATABASE_URL must beat a stale .env value, and shell-wins is
+    # the less surprising rule. Documented in CLAUDE.md.
+    try:
+        env_registry = GraphRegistry(runtime_config.runtime_config_path())
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "Could not read %s; webapp mount and env file skipped",
+            runtime_config.runtime_config_path(),
+        )
+        env_registry = None
+    if env_registry is not None and env_registry.env_file:
+        from dotenv import load_dotenv
+
+        load_dotenv(
+            runtime_config.runtime_config_path().parent / env_registry.env_file,
+            override=False,
+        )
+
     app = FastAPI(title="agent_runtime", lifespan=_lifespan)
 
     @app.get("/ok")
@@ -128,10 +169,9 @@ def create_app() -> FastAPI:
 
     # D1: mount the existing webapp last so runtime routes win and everything
     # else (webhooks, dashboard, OAuth, harness control routes) falls through.
-    if os.environ.get("AGENT_RUNTIME_NO_WEBAPP") != "1":
+    if os.environ.get("AGENT_RUNTIME_NO_WEBAPP") != "1" and env_registry is not None:
         try:
-            registry_config = GraphRegistry(runtime_config.runtime_config_path())
-            webapp = load_webapp(registry_config.webapp_path)
+            webapp = load_webapp(env_registry.webapp_path)
             if webapp is not None:
                 app.mount("/", webapp)
         except Exception:  # noqa: BLE001

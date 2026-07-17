@@ -116,6 +116,9 @@ def contract_server(
                 "DATABASE_URL": _fresh_database(admin_dsn),
                 "AGENT_RUNTIME_CONFIG": str(config_path),
                 "AGENT_RUNTIME_NO_WEBAPP": "1",
+                # Contract timing matches dev's fast inmem pickup; the queue
+                # delay is pinned by its own runtime test.
+                "AGENT_RUNTIME_PICKUP_DELAY_MS": "0",
             }
         )
         command = [

@@ -2090,6 +2090,7 @@ dependencies = [
     { name = "markdownify" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pyjwt" },
+    { name = "python-dotenv" },
     { name = "stagehand" },
     { name = "uvicorn" },
 ]
@@ -2134,6 +2135,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.12.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.4.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.20" },
     { name = "stagehand", specifier = ">=3.21.0" },
     { name = "uvicorn", specifier = ">=0.50.2" },

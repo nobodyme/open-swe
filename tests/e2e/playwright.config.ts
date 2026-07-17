@@ -16,7 +16,7 @@ const webServerCommand =
   RUNTIME === "platform"
     ? "uv run langgraph dev --config tests/e2e/langgraph.e2e.json " +
       `--port ${PORT} --no-browser --allow-blocking --no-reload`
-    : `uv run uvicorn agent_runtime.app:app --port ${PORT}`;
+    : "bash tests/e2e/run-embedded.sh";
 
 export default defineConfig({
   testDir: "./tests",

@@ -559,11 +559,11 @@ invalidating already-stored GitHub tokens:
 Make sure ngrok is still running from step 2, then start the backend in a second terminal:
 
 ```bash
-make dev          # uv run langgraph dev
-# or: uv run langgraph dev --no-browser
+make dev          # agent_runtime (self-hosted, MIT) + Docker Postgres on :2024
+# or: make dev-platform   # the Elastic-licensed `langgraph dev` server
 ```
 
-`langgraph dev` serves **all three graphs** (`agent`, `reviewer`, `analyzer`) *and* the FastAPI app (`agent.webapp:app`) together on `http://localhost:2024`. The FastAPI app owns both the webhooks and the dashboard API:
+`make dev` (Docker required for the bundled Postgres) serves **all graphs** (`agent`, `reviewer`, `analyzer`, …) *and* the FastAPI app (`agent.webapp:app`) together on `http://localhost:2024`. The FastAPI app owns both the webhooks and the dashboard API:
 
 | Endpoint | Purpose |
 |---|---|
