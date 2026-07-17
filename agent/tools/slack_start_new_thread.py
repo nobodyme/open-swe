@@ -1,19 +1,15 @@
-import os
 import re
 from typing import Any
 
 from langgraph.config import get_config
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client as _langgraph_client
 
 from ..dispatch import dispatch_agent_run
 from ..utils.dashboard_links import dashboard_thread_url
 from ..utils.langsmith import get_langsmith_trace_url
 from ..utils.slack import post_slack_top_level_message_with_ts, store_slack_run_mapping
 from ..utils.thread_ids import generate_thread_id_from_slack_thread
-
-LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL") or os.environ.get(
-    "LANGGRAPH_URL_PROD", "http://localhost:2024"
-)
 
 _TITLE_MAX_CHARS = 160
 _INSTRUCTIONS_MAX_CHARS = 12000
@@ -235,7 +231,7 @@ async def slack_start_new_thread(
         if value:
             new_configurable[key] = value
 
-    client = get_client(url=LANGGRAPH_URL)
+    client = _langgraph_client()
     await client.threads.create(thread_id=thread_id, if_exists="do_nothing", metadata=metadata)
     await client.threads.update(thread_id=thread_id, metadata=metadata)
 

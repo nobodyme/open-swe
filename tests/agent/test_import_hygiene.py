@@ -52,6 +52,13 @@ def test_client_boundary_modules_do_not_import_langgraph_api() -> None:
         assert not any(loaded.values()), f"langgraph_api imported by {entry}"
 
 
+def test_agent_runtime_does_not_import_langgraph_api() -> None:
+    """The whole point of the migration: the self-hosted runtime must never
+    pull the Elastic-licensed langgraph_api package (phase-3.md T1)."""
+    loaded = _closure_check("agent_runtime.app", ["langgraph_api", "langgraph_runtime_inmem"])
+    assert not any(loaded.values()), f"Elastic packages imported by agent_runtime.app: {loaded}"
+
+
 def test_lazy_names_all_resolve() -> None:
     code = """
 import importlib

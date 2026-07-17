@@ -12,7 +12,6 @@ from urllib.parse import parse_qs, quote
 
 import httpx
 from fastapi import BackgroundTasks, HTTPException, Request
-from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
 
 from ..dashboard.agent_overrides import (
@@ -122,7 +121,12 @@ from ..utils.slack_feedback import (
     process_slack_reaction_removed,
 )
 from ..utils.thread_ids import generate_thread_id_from_slack_thread
-from ..utils.thread_ops import queue_message_for_thread  # noqa: F401
+from ..utils.thread_ops import (
+    langgraph_client as _make_langgraph_client,
+)
+from ..utils.thread_ops import (
+    queue_message_for_thread,  # noqa: F401
+)
 
 __all__ = [
     "Any",
@@ -133,7 +137,6 @@ __all__ = [
     "FEEDBACK_REACTIONS",
     "GITHUB_WEBHOOK_SECRET",
     "HTTPException",
-    "LANGGRAPH_URL",
     "LINEAR_WEBHOOK_SECRET",
     "OPEN_SWE_TAGS",
     "REVIEWER_THREAD_KIND",
@@ -207,7 +210,7 @@ __all__ = [
     "generate_thread_id_from_github_issue",
     "generate_thread_id_from_issue",
     "generate_thread_id_from_slack_thread",
-    "get_client",
+    "_make_langgraph_client",
     "get_github_app_installation_token",
     "get_github_app_installation_token_with_expiry",
     "get_profile_default_repo",
@@ -294,9 +297,11 @@ DOCS_PLZ_SLACK_GATE_REPLY = (
     "Please don't use Open SWE here, instead ask the Fleet docs-plz agent to implement the docs"
 )
 
-LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL") or os.environ.get(
-    "LANGGRAPH_URL_PROD", "http://localhost:2024"
-)
+# NOTE: `_make_langgraph_client` is THE client seam for this module and the
+# webhook modules that call `common._make_langgraph_client()` — tests patch
+# exactly this name. It is an alias because several functions bind a LOCAL
+# `langgraph_client` instance which would shadow the plain name.
+
 
 _AGENT_VERSION_METADATA: dict[str, str] = (
     {"LANGSMITH_AGENT_VERSION": os.environ["LANGCHAIN_REVISION_ID"]}
@@ -693,7 +698,7 @@ async def upsert_agent_thread_owner_metadata(
     if source_context:
         metadata["source_context"] = source_context
 
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         existing = await langgraph_client.threads.get(thread_id)
     except Exception as exc:  # noqa: BLE001
@@ -741,7 +746,7 @@ async def get_slack_repo_config(
     default_owner = SLACK_REPO_OWNER.strip() or DEFAULT_REPO_OWNER
     default_name = SLACK_REPO_NAME.strip() or DEFAULT_REPO_NAME
     thread_id = generate_thread_id_from_slack_thread(channel_id, thread_ts)
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
 
     repo_config: dict[str, str] | None = None
 
@@ -814,7 +819,7 @@ async def get_slack_repo_config(
 
 async def _thread_exists(thread_id: str) -> bool:
     """Return whether a LangGraph thread already exists."""
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         await langgraph_client.threads.get(thread_id)
         return True
@@ -846,7 +851,7 @@ async def _slack_user_is_thread_owner(thread_id: str, slack_user_id: str) -> boo
     """
     if not slack_user_id:
         return False
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         thread = await langgraph_client.threads.get(thread_id)
     except Exception:  # noqa: BLE001
@@ -862,7 +867,7 @@ async def _slack_user_is_thread_owner(thread_id: str, slack_user_id: str) -> boo
 
 async def _get_thread_plan_mode(thread_id: str) -> bool | None:
     """Return the persisted plan-mode flag for a thread, or ``None`` if unset."""
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         thread = await langgraph_client.threads.get(thread_id)
     except Exception as exc:  # noqa: BLE001
@@ -879,7 +884,7 @@ async def _get_thread_plan_mode(thread_id: str) -> bool | None:
 
 async def _set_thread_plan_mode(thread_id: str, enabled: bool) -> None:
     """Persist the plan-mode flag onto thread metadata."""
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         await langgraph_client.threads.update(
             thread_id=thread_id, metadata={"plan_mode": bool(enabled)}
@@ -1259,7 +1264,7 @@ async def _is_pr_diff_unchanged_since_last_review(
 
 async def _get_thread_metadata_safe(thread_id: str) -> dict[str, Any] | None:
     """Fetch a thread's metadata; return ``None`` if the thread doesn't exist."""
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         thread = await langgraph_client.threads.get(thread_id)
     except Exception as exc:  # noqa: BLE001
@@ -1297,7 +1302,7 @@ async def update_agent_thread_pr_state(payload: dict[str, Any]) -> None:
     if not isinstance(pr_url, str) or not pr_url or new_state is None:
         return
 
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _make_langgraph_client()
     try:
         threads = await langgraph_client.threads.search(metadata={"pr_url": pr_url}, limit=10)
     except Exception:  # noqa: BLE001

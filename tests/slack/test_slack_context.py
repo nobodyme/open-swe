@@ -366,7 +366,9 @@ def test_get_slack_repo_config_uses_existing_thread_repo(
         posted = True
         return True
 
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeClient(threads_client))
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeClient(threads_client)
+    )
     monkeypatch.setattr(
         webhook_common, "post_slack_thread_reply", fake_post_slack_thread_reply, raising=False
     )
@@ -392,7 +394,9 @@ def test_get_slack_repo_config_new_thread_uses_default(
     monkeypatch.setattr(webhook_common, "SLACK_REPO_NAME", "default-repo")
     monkeypatch.setattr(webhook_common, "get_team_default_repo", _no_team_default_repo)
 
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeClient(threads_client))
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeClient(threads_client)
+    )
 
     repo = asyncio.run(webhook_common.get_slack_repo_config("C123", "1.234"))
 
@@ -407,7 +411,9 @@ def test_get_slack_repo_config_existing_thread_without_repo_uses_default(
     monkeypatch.setattr(webhook_common, "SLACK_REPO_NAME", "default-repo")
     monkeypatch.setattr(webhook_common, "get_team_default_repo", _no_team_default_repo)
 
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeClient(threads_client))
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeClient(threads_client)
+    )
 
     repo = asyncio.run(webhook_common.get_slack_repo_config("C123", "1.234"))
 
@@ -424,7 +430,9 @@ def test_get_slack_repo_config_ignores_repo_syntax_in_message(
         thread={"metadata": {"repo": {"owner": "saved-owner", "name": "saved-repo"}}}
     )
 
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeClient(threads_client))
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeClient(threads_client)
+    )
 
     repo = asyncio.run(webhook_common.get_slack_repo_config("C123", "1.234"))
 
@@ -446,7 +454,9 @@ def test_get_slack_repo_config_applies_profile_default_repo(
         assert login == "mason"
         return {"owner": "profile-owner", "name": "profile-repo"}
 
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeClient(threads_client))
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeClient(threads_client)
+    )
     monkeypatch.setattr(webhook_common, "get_slack_user_info", fake_get_slack_user_info)
     monkeypatch.setattr(
         webhook_common, "resolve_login_from_email_async", fake_resolve_login_from_email_async
@@ -466,7 +476,9 @@ def test_get_slack_repo_config_applies_team_default_repo(
     async def fake_get_team_default_repo() -> dict[str, str] | None:
         return {"owner": "team-owner", "name": "team-repo"}
 
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeClient(threads_client))
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeClient(threads_client)
+    )
     monkeypatch.setattr(webhook_common, "get_team_default_repo", fake_get_team_default_repo)
     monkeypatch.setattr(webhook_common, "SLACK_REPO_NAME", "")
     monkeypatch.setattr(webhook_common, "DEFAULT_REPO_NAME", "")
@@ -564,7 +576,9 @@ def _setup_slack_mention_fakes(
         captured["prompt"] = {"args": args, "kwargs": kwargs}
 
     monkeypatch.setattr(webhook_common, "post_slack_trace_reply", fake_post_slack_trace_reply)
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClientForProcess())
+    monkeypatch.setattr(
+        webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClientForProcess()
+    )
     monkeypatch.setattr(webhook_common, "login_for_slack_id", fake_login_for_slack_id)
     monkeypatch.setattr(webhook_common, "login_for_email", fake_login_for_email)
     monkeypatch.setattr(webhook_common, "refresh_user_mapping_cache", fake_refresh_cache)

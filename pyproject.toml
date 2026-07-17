@@ -69,17 +69,29 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # Pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "TID251", # banned-api: the bare-get_client license guard (phase-3.md T1)
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
 ]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"langgraph_sdk.get_client".msg = "Use thread_ops.langgraph_client() or dispatch.dispatch_client(); get_client(url=None) imports Elastic-licensed langgraph_api in-process (docs/MIGRATION.md §1)."
+"langgraph_sdk.get_sync_client".msg = "Same hazard as get_client; use the URL-resolving helpers."
+
+[tool.ruff.lint.per-file-ignores]
+"agent/utils/thread_ops.py" = ["TID251"] # langgraph_client() — the sanctioned wrapper
+"agent/dispatch.py" = ["TID251"]         # dispatch_client() — the sanctioned wrapper
+"tests/**" = ["TID251"]                  # suites legitimately call get_client(url=...)
+"evals/**" = ["TID251"]                  # dev-context tooling (licensed like tests)
+"scripts/**" = ["TID251"]                # dev-context tooling
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

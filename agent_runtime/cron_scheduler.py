@@ -49,15 +49,16 @@ class CronScheduler:
         pool: DictPool,
         executor: RunExecutor,
         threads: ThreadsRepo,
+        saver: Any | None = None,
     ) -> None:
         self._pool = pool
         self._executor = executor
         self._threads = threads
+        self._saver = saver
         self._scheduler = AsyncIOScheduler()
 
     async def start(self) -> None:
         self._scheduler.start()
-        import json as _json  # noqa: F401
 
         async with self._pool.connection() as conn:
             rows = await (await conn.execute("SELECT * FROM rt_cron")).fetchall()
@@ -66,6 +67,26 @@ class CronScheduler:
                 self._add_job(self._row_to_cron(row))
             except Exception:  # noqa: BLE001
                 logger.exception("Failed to schedule cron %s on boot", row.get("cron_id"))
+
+        # Checkpoint TTL sweep (phase-3.md T2) — enforcement of the
+        # langgraph.json checkpointer.ttl intent. Disabled via
+        # CHECKPOINT_TTL_MINUTES=0.
+        from agent_runtime import ttl_sweep
+
+        if ttl_sweep.ttl_minutes() > 0 and self._saver is None:
+            logger.warning(
+                "Checkpoint TTL is configured but no saver was provided — "
+                "TTL sweep disabled for this scheduler instance"
+            )
+        if ttl_sweep.ttl_minutes() > 0 and self._saver is not None:
+            self._scheduler.add_job(
+                ttl_sweep.sweep_expired_checkpoints,
+                trigger="interval",
+                minutes=ttl_sweep.sweep_interval_minutes(),
+                id="__checkpoint_ttl_sweep__",
+                args=[self._pool, self._saver],
+                replace_existing=True,
+            )
 
     async def shutdown(self) -> None:
         self._scheduler.shutdown(wait=False)

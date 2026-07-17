@@ -149,3 +149,41 @@ Plus: `tests/agent/test_no_bare_get_client.py` deleted; MIGRATION "12 h" correct
 | T5 | Gate + commit | S |
 
 Matches MIGRATION §6: "small — validation and dependency hygiene, not new application logic." T2 is the only code of substance.
+
+---
+
+## 5. Completion record (2026-07-17)
+
+All five tasks delivered. T1: TID251 active with the two-helper allowlist
+(+ tests/evals/scripts dev-context ignores); banning the NAME forced
+converting the ~23 remaining `get_client(url=…)` sites (tools, feedback
+utils, webhooks, review_style_jobs) to `langgraph_client()` — note
+`webhooks/common.py` binds LOCAL variables named `langgraph_client`, so the
+module aliases the factory as `_make_langgraph_client` to avoid
+self-shadowing; Phase 0's AST guard test deleted as designated;
+import-hygiene gained the `agent_runtime.app` probe (also banning
+`langgraph_runtime_inmem`). T2: `ttl_sweep.py` registered on the scheduler
+(43200-min default, env knobs, 0 disables); idempotence via an
+rt_thread_event-existence marker (our schema only); the four pins pass.
+T3: MIGRATION already carried the corrected 30-day wording; the
+thread-retention divergence is ledger entry 7. T4: INSTALLATION §10
+rewritten for self-hosted `agent_runtime` (DATABASE_URL, single-process
+advisory-lock note, non-loopback COMPLETION_WEBHOOK_URL, TTL knobs, the
+ELv2 local-dev-only framing for `langgraph dev`, and the SaaS-deps note);
+stale three-graph snippet removed. `langgraph-cli[inmem]` remains a normal
+dependency, by decision.
+
+**Adversarial review (7 findings) — all addressed.** The blocker: the
+conversions removed the `get_client` attribute that 51 existing tests
+monkeypatched — every patch site was rewritten to the new seams, and the
+webhook client seam was CONSOLIDATED to `common._make_langgraph_client`
+(webhooks/slack.py and github.py previously called
+`common.langgraph_client()`, a second binding tests couldn't reach; 450
+webhook/tool/feedback tests green after the rewrite). Also fixed: the TTL
+test fixture's `updated_at` race (wait for the finalize writer before
+aging; the in-flight test now pins the exclusion, not incidental
+freshness), `ORDER BY updated_at` + failed-victim warning in the sweep
+(starvation), the checkpoint-writer/rt_thread_event invariant documented,
+a saver-absent warning in the scheduler, review_style_jobs' dead url
+branch collapsed, and five dead frozen-at-import `LANGGRAPH_URL` constants
+deleted (incl. common's `__all__` export — zero consumers remained).

@@ -41,7 +41,7 @@ async def test_slack_processing_error_posts_dashboard_link(
         slack_webhook.common, "strip_bot_mention", lambda text, *_args, **_kwargs: text
     )
     monkeypatch.setattr(slack_webhook.common, "upsert_agent_thread_owner_metadata", upsert)
-    monkeypatch.setattr(slack_webhook.common, "get_client", lambda *, url: client)
+    monkeypatch.setattr(slack_webhook.common, "_make_langgraph_client", lambda: client)
     monkeypatch.setattr(slack_webhook.common, "set_slack_assistant_status", set_status)
     monkeypatch.setattr(
         slack_webhook.common, "dashboard_thread_url", lambda thread_id: f"https://ui/{thread_id}"

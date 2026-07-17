@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import logging
-import os
 import uuid
 from typing import Any
-
-from langgraph_sdk import get_client
 
 from agent.utils.thread_ops import langgraph_client
 
@@ -34,9 +31,6 @@ _ASSISTANT_ID = "analyzer"
 
 def _client():
     """LangGraph SDK client for the current deployment (same resolution as webapp)."""
-    url = os.environ.get("LANGGRAPH_URL") or os.environ.get("LANGGRAPH_URL_PROD")
-    if url:
-        return get_client(url=url)
     return langgraph_client()
 
 

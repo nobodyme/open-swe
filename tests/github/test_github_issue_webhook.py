@@ -404,7 +404,7 @@ def test_process_github_review_finding_reply_uses_rereview_config(monkeypatch) -
     monkeypatch.setattr(webhook_common, "list_reviewer_findings", fake_list_findings)
     monkeypatch.setattr(webhook_common, "append_finding_interaction", fake_append_interaction)
     monkeypatch.setattr(webhook_common, "_store_current_reviewer_run_id", fake_store_current_run_id)
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClient())
+    monkeypatch.setattr(webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClient())
 
     asyncio.run(
         github_webhooks.process_github_review_finding_reply(
@@ -482,7 +482,7 @@ def test_process_github_review_finding_reply_dispatches_sanitized_reply_body(mon
     monkeypatch.setattr(webhook_common, "list_reviewer_findings", fake_list_findings)
     monkeypatch.setattr(webhook_common, "append_finding_interaction", fake_append_interaction)
     monkeypatch.setattr(webhook_common, "_store_current_reviewer_run_id", fake_store_current_run_id)
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClient())
+    monkeypatch.setattr(webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClient())
 
     asyncio.run(
         github_webhooks.process_github_review_finding_reply(
@@ -1080,7 +1080,7 @@ def test_process_github_pr_ready_creates_reviewer_run(monkeypatch) -> None:
     monkeypatch.setattr(
         webhook_common, "post_review_started_comment", fake_post_review_started_comment
     )
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClient())
+    monkeypatch.setattr(webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClient())
 
     asyncio.run(
         github_webhooks.process_github_pr_ready(
@@ -1189,7 +1189,7 @@ def test_trigger_pr_review_from_ref_creates_reviewer_run(monkeypatch) -> None:
     monkeypatch.setattr(
         webhook_common, "post_review_started_comment", fake_post_review_started_comment
     )
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClient())
+    monkeypatch.setattr(webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClient())
 
     result = asyncio.run(
         github_webhooks.trigger_pr_review_from_ref(
@@ -1383,7 +1383,7 @@ def test_process_github_issue_uses_resolved_user_token_for_reaction(monkeypatch)
     )
     monkeypatch.setattr(webhook_common, "react_to_github_comment", fake_react_to_github_comment)
     monkeypatch.setattr(webhook_common, "fetch_issue_comments", fake_fetch_issue_comments)
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClient())
+    monkeypatch.setattr(webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClient())
     monkeypatch.setattr(
         webhook_common,
         "email_for_login",
@@ -1462,7 +1462,7 @@ def test_process_github_issue_existing_thread_uses_followup_prompt(monkeypatch) 
     monkeypatch.setattr(webhook_common, "_thread_exists", fake_thread_exists)
     monkeypatch.setattr(webhook_common, "react_to_github_comment", fake_react_to_github_comment)
     monkeypatch.setattr(webhook_common, "fetch_issue_comments", fake_fetch_issue_comments)
-    monkeypatch.setattr(webhook_common, "get_client", lambda url: _FakeLangGraphClient())
+    monkeypatch.setattr(webhook_common, "_make_langgraph_client", lambda: _FakeLangGraphClient())
     monkeypatch.setattr(
         webhook_common,
         "email_for_login",

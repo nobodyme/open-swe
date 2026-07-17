@@ -88,7 +88,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         threads=threads_repo,
         runs=runs_repo,
     )
-    cron_scheduler = CronScheduler(pool=pool, executor=executor, threads=threads_repo)
+    cron_scheduler = CronScheduler(pool=pool, executor=executor, threads=threads_repo, saver=saver)
 
     app.state.pool = pool
     app.state.saver = saver

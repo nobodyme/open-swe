@@ -94,7 +94,15 @@ bent to fit the new runtime.
    /runs/cancel` with `run_ids` but no `thread_id` is a no-op (both app
    callers always send thread_id), and `ThreadSearchBody.values` filtering
    is accepted-and-ignored (no app caller filters threads by values).
-7. **Embedded runtime deltas (Phase 1, both deliberate):**
+7. **Checkpoint TTL retention (Phase 3, deliberate):** platform
+   `checkpointer.ttl` `strategy="delete"` drops the THREAD and all its data;
+   `agent_runtime`'s TTL sweep keeps `rt_thread` (metadata is load-bearing
+   app state — sandbox id, encrypted GitHub token, Slack/PR links) and
+   `rt_run` history, deleting only checkpoint data + `rt_thread_event`.
+   `get_state` on a swept thread reads like a never-run thread. Under
+   `langgraph dev` the TTL block is dead config (inmem sweep is a no-op),
+   so no golden pins this; `tests/agent_runtime/test_ttl_sweep.py` is the pin.
+8. **Embedded runtime deltas (Phase 1, both deliberate):**
    - `agent_runtime` SUPPORTS dotted nested store filters (Postgres store) —
      a superset of dev's inmem store (ledger item 1); the app's flat filters
      behave identically on both.
