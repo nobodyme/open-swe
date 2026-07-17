@@ -20,7 +20,12 @@ DEV_DATABASE_URL ?= postgresql://openswe:openswe@localhost:54329/openswe_dev
 dev:
 	docker compose -f docker-compose.test.yml up -d --wait
 	uv run python -c "import psycopg; c = psycopg.connect('postgresql://openswe:openswe@localhost:54329/openswe_test', autocommit=True); c.execute('CREATE DATABASE openswe_dev') if not c.execute(\"SELECT 1 FROM pg_database WHERE datname='openswe_dev'\").fetchone() else None"
-	DATABASE_URL=$(DEV_DATABASE_URL) AGENT_RUNTIME_LOG_LEVEL=$${AGENT_RUNTIME_LOG_LEVEL:-info} \
+	@if [ -z "$${SANDBOX_TYPE:-}" ] && ! grep -qE '^SANDBOX_TYPE=' .env 2>/dev/null; then \
+		echo "SANDBOX_TYPE not configured — defaulting to 'local' for dev (commands run on this host, no isolation)."; \
+	fi
+	SANDBOX_TYPE=$${SANDBOX_TYPE:-$$(grep -E '^SANDBOX_TYPE=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"'" )} ; \
+	DATABASE_URL=$(DEV_DATABASE_URL) SANDBOX_TYPE=$${SANDBOX_TYPE:-local} \
+	AGENT_RUNTIME_LOG_LEVEL=$${AGENT_RUNTIME_LOG_LEVEL:-info} \
 		uv run uvicorn agent_runtime.app:app --host 127.0.0.1 --port 2024 --reload
 
 # The Elastic-licensed langgraph dev server, kept available during the
