@@ -29,7 +29,8 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 import httpx
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ MappingStatus = Literal["active", "pending"]
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _now() -> str:

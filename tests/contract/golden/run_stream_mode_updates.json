@@ -1,0 +1,29 @@
+[
+  {
+    "data": {
+      "attempt": 1,
+      "run_id": "<uuid-1>"
+    },
+    "event": "metadata"
+  },
+  {
+    "data": {
+      "agent": {
+        "messages": [
+          {
+            "additional_kwargs": {},
+            "content": "echo: mode updates",
+            "id": "lc_run--<uuid-2>-0",
+            "invalid_tool_calls": [],
+            "name": null,
+            "response_metadata": {},
+            "tool_calls": [],
+            "type": "ai",
+            "usage_metadata": null
+          }
+        ]
+      }
+    },
+    "event": "updates"
+  }
+]

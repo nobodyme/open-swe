@@ -1,0 +1,60 @@
+{
+  "checkpoint": {
+    "checkpoint_id": "<uuid-1>",
+    "checkpoint_ns": "",
+    "thread_id": "<uuid-2>"
+  },
+  "checkpoint_id": "<uuid-1>",
+  "created_at": "<ts>",
+  "interrupts": [],
+  "metadata": {
+    "assistant_id": "<uuid-3>",
+    "created_by": "system",
+    "graph_id": "agent",
+    "langgraph_api_url": "<env>",
+    "langgraph_api_version": "<env>",
+    "langgraph_auth_user_id": "",
+    "langgraph_host": "<env>",
+    "langgraph_plan": "<env>",
+    "langgraph_request_id": "<uuid-4>",
+    "langgraph_version": "<env>",
+    "parents": {},
+    "run_attempt": 1,
+    "run_id": "<uuid-5>",
+    "source": "loop",
+    "step": 1,
+    "thread_id": "<uuid-2>",
+    "user_id": ""
+  },
+  "next": [],
+  "parent_checkpoint": {
+    "checkpoint_id": "<uuid-6>",
+    "checkpoint_ns": "",
+    "thread_id": "<uuid-2>"
+  },
+  "parent_checkpoint_id": "<uuid-6>",
+  "tasks": [],
+  "values": {
+    "messages": [
+      {
+        "additional_kwargs": {},
+        "content": "state probe",
+        "id": "<uuid-7>",
+        "name": null,
+        "response_metadata": {},
+        "type": "human"
+      },
+      {
+        "additional_kwargs": {},
+        "content": "echo: state probe",
+        "id": "lc_run--<uuid-8>-0",
+        "invalid_tool_calls": [],
+        "name": null,
+        "response_metadata": {},
+        "tool_calls": [],
+        "type": "ai",
+        "usage_metadata": null
+      }
+    ]
+  }
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 from typing import Any
 
 import pytest
@@ -110,3 +111,17 @@ async def test_create_durable_run_preserves_existing_prepare_id_and_stream_kwarg
     assert created["stream_mode"] == ["values"]
     assert created["stream_resumable"] is True
     assert created["config"]["configurable"]["prepare_run_id"] == "existing"
+
+
+@pytest.mark.asyncio
+async def test_create_durable_run_has_no_after_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """after_seconds was a platform feature no caller ever passed; the replacement
+    runtime does not implement it, so the parameter must stay deleted."""
+    assert "after_seconds" not in inspect.signature(dispatch.create_durable_run).parameters
+
+    client = _FakeClient()
+    monkeypatch.setattr(dispatch, "COMPLETION_WEBHOOK_URL", None)
+    await dispatch.create_durable_run(
+        "thread-1", "agent", input={"messages": []}, source="test", client=client
+    )
+    assert "after_seconds" not in client.runs.created[0]

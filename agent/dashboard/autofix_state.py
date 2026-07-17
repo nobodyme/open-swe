@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from langgraph_sdk import get_client
+from agent.utils.thread_ops import langgraph_client
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ AUTOFIX_PR_STATE_NAMESPACE: list[str] = ["autofix_pr_state"]
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _key(owner: str, repo: str, pr_number: int) -> str:

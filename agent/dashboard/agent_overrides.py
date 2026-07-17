@@ -6,7 +6,8 @@ import logging
 from typing import Any
 
 import httpx
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from .options import SUPPORTED_MODEL_IDS, model_supports_effort, provider_fallback_pair
 from .profiles import PROFILES_NAMESPACE
@@ -70,7 +71,7 @@ async def get_profile_default_repo(login: str | None) -> dict[str, str] | None:
 
 async def load_profile(login: str) -> dict[str, Any] | None:
     try:
-        item = await get_client().store.get_item(PROFILES_NAMESPACE, login)
+        item = await langgraph_client().store.get_item(PROFILES_NAMESPACE, login)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             return None

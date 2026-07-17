@@ -10,8 +10,9 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from langgraph_sdk import get_client
 from pydantic import BaseModel, Field, field_validator
+
+from agent.utils.thread_ops import langgraph_client
 
 from .review_styles import normalize_repo_full_name
 
@@ -34,7 +35,7 @@ class AgentInstructionsUpdate(BaseModel):
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 async def _get_value(key: str) -> dict[str, Any] | None:

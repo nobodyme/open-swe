@@ -10,7 +10,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import httpx
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..review.findings import REVIEWER_THREAD_KIND
 from ..utils.github_app import get_github_app_installation_token
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _now_ms() -> int:

@@ -42,6 +42,16 @@ def test_server_does_not_import_exa_or_dashboard_routes() -> None:
     assert not any(loaded.values()), f"forbidden modules imported by agent.server: {loaded}"
 
 
+def test_client_boundary_modules_do_not_import_langgraph_api() -> None:
+    """Importing the SDK-client boundary must not load the Elastic-licensed
+    langgraph_api package (bare get_client() would — docs/MIGRATION.md §1).
+    agent.server is included because it constructs its client at import time,
+    so ANY bypass form there is caught here regardless of AST-guard gaps."""
+    for entry in ("agent.utils.auth", "agent.dispatch", "agent.utils.thread_ops", "agent.server"):
+        loaded = _closure_check(entry, ["langgraph_api"])
+        assert not any(loaded.values()), f"langgraph_api imported by {entry}"
+
+
 def test_lazy_names_all_resolve() -> None:
     code = """
 import importlib

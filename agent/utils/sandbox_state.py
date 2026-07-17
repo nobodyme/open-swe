@@ -19,7 +19,8 @@ from deepagents.backends.protocol import (
     WriteResult,
 )
 from langgraph.config import get_config
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from .sandbox import create_sandbox
 
@@ -244,7 +245,7 @@ async def get_sandbox_id_from_metadata(thread_id: str) -> str | None:
         )
 
     try:
-        client = get_client()
+        client = langgraph_client()
         thread = await client.threads.get(thread_id)
     except Exception:
         logger.exception("Failed to fetch live thread metadata for sandbox")

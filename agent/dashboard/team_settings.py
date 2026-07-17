@@ -12,8 +12,9 @@ import os
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from langgraph_sdk import get_client
 from pydantic import BaseModel, field_validator, model_validator
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..utils.gateway import resolve_gateway_enabled
 from .options import (
@@ -221,7 +222,7 @@ def normalize_team_settings_for_response(settings: dict[str, Any]) -> dict[str, 
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _env_default_repo() -> str | None:

@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 from langgraph.graph.state import RunnableConfig
 from langgraph.pregel import Pregel
 from langgraph.runtime import Runtime
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 warnings.filterwarnings("ignore", module="langchain_core._api.deprecation")
 
@@ -154,7 +155,7 @@ from .utils.sandbox_state import (
 )
 from .utils.tracing import AGENT_TRACING_PROJECT, traced_graph_factory
 
-client = get_client()
+client = langgraph_client()
 
 DEFAULT_TOOL_LOADER_TIMEOUT_SECONDS = 5.0
 

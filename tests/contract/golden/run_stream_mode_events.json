@@ -1,0 +1,42 @@
+[
+  {
+    "event": "metadata",
+    "inner_event": null
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_start"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_start"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chat_model_start"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chat_model_end"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_start"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_end"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_stream"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_end"
+  },
+  {
+    "event": "events",
+    "inner_event": "on_chain_end"
+  }
+]

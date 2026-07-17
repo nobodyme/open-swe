@@ -5,6 +5,19 @@ const repoRoot = resolve(__dirname, "..", "..");
 const PORT = Number(process.env.E2E_PORT ?? 2024);
 const baseURL = `http://127.0.0.1:${PORT}`;
 
+// Which runtime serves the graphs under test (docs/fast-api-migration/phase-0.md §1):
+//   platform (default) — langgraph dev, byte-identical to the historical command.
+//   embedded           — the MIT-only agent_runtime FastAPI server (Phase 1+).
+const RUNTIME = process.env.RUNTIME ?? "platform";
+if (RUNTIME !== "platform" && RUNTIME !== "embedded") {
+  throw new Error(`RUNTIME must be "platform" or "embedded", got "${RUNTIME}"`);
+}
+const webServerCommand =
+  RUNTIME === "platform"
+    ? "uv run langgraph dev --config tests/e2e/langgraph.e2e.json " +
+      `--port ${PORT} --no-browser --allow-blocking --no-reload`
+    : `uv run uvicorn agent_runtime.app:app --port ${PORT}`;
+
 export default defineConfig({
   testDir: "./tests",
   globalSetup: "./global-setup.ts",
@@ -31,11 +44,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // Real langgraph dev: real agent graph + real webhook routes + the harness
-    // http app (fake GitHub/Slack + mock UIs). Only the LLM is faked.
-    command:
-      "uv run langgraph dev --config tests/e2e/langgraph.e2e.json " +
-      `--port ${PORT} --no-browser --allow-blocking --no-reload`,
+    // Real graph runtime (see RUNTIME above): real agent graph + real webhook
+    // routes + the harness http app (fake GitHub/Slack + mock UIs). Only the
+    // LLM is faked.
+    command: webServerCommand,
     cwd: repoRoot,
     url: `${baseURL}/mock/github/data`,
     reuseExistingServer: !process.env.CI,

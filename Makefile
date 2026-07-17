@@ -1,4 +1,4 @@
-.PHONY: all format format-check lint typecheck test tests integration_tests help run dev
+.PHONY: all format format-check lint typecheck test tests integration_tests contract-test help run dev
 
 # Default target executed when no arguments are given to make.
 all: help
@@ -28,6 +28,12 @@ test tests:
 	else \
 		echo "Skipping tests: path not found: $(TEST_FILE)"; \
 	fi
+
+# Contract suite: needs Docker (ephemeral Postgres) and boots langgraph dev on
+# an ephemeral port. Excluded from `make test` via pyproject addopts.
+# Missing goldens fail hard; record new ones with CONTRACT_RECORD=1 make contract-test.
+contract-test:
+	uv run pytest -vvv -m contract tests/contract/
 
 integration_tests:
 	@if [ -d "tests/integration_tests/" ] || [ -f "tests/integration_tests/" ]; then \
@@ -69,5 +75,6 @@ help:
 	@echo 'lint                         - run linters'
 	@echo 'typecheck                    - run basedpyright on agent/ and tests/'
 	@echo 'test                         - run unit tests'
+	@echo 'contract-test                - run contract suite (Docker Postgres + langgraph dev)'
 	@echo 'integration_tests            - run integration tests'
 	@echo '----'

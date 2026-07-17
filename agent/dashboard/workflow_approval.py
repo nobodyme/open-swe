@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from langgraph_sdk import get_client
+from agent.utils.thread_ops import langgraph_client
 
 WORKFLOW_PUSH_APPROVALS_KEY = "workflow_push_approvals"
 WORKFLOW_APPROVAL_PENDING = "pending"
@@ -34,7 +34,7 @@ def _approvals_from_metadata(metadata: Mapping[str, Any] | None) -> dict[str, di
 
 
 async def get_workflow_push_approvals(thread_id: str) -> dict[str, dict[str, Any]]:
-    client = get_client()
+    client = langgraph_client()
     thread = await client.threads.get(thread_id)
     metadata = thread.get("metadata") if isinstance(thread, dict) else None
     return _approvals_from_metadata(metadata if isinstance(metadata, dict) else None)
@@ -179,7 +179,7 @@ async def decide_workflow_push_approval(
 async def _save_approvals(thread_id: str, approvals: dict[str, dict[str, Any]]) -> None:
     ordered = sorted(approvals.values(), key=lambda r: str(r.get("requested_at", "")))
     trimmed = ordered[-_MAX_APPROVAL_RECORDS:]
-    await get_client().threads.update(
+    await langgraph_client().threads.update(
         thread_id=thread_id,
         metadata={WORKFLOW_PUSH_APPROVALS_KEY: {str(r["fingerprint"]): r for r in trimmed}},
     )

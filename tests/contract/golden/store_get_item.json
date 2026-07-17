@@ -1,0 +1,16 @@
+{
+  "created_at": "<ts>",
+  "key": "profile-1",
+  "namespace": [
+    "contract",
+    "store-crud"
+  ],
+  "updated_at": "<ts>",
+  "value": {
+    "login": "alice",
+    "prefs": {
+      "model": "sonnet",
+      "notify": true
+    }
+  }
+}

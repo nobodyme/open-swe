@@ -1,0 +1,89 @@
+{
+  "assistant_id": "<uuid-1>",
+  "created_at": "<ts>",
+  "kwargs": {
+    "checkpoint_during": true,
+    "command": null,
+    "config": {
+      "configurable": {
+        "__after_seconds__": 0,
+        "__pregel_node_finished": null,
+        "__request_start_time_ms__": "<ts-ms>",
+        "assistant_id": "<uuid-1>",
+        "graph_id": "agent",
+        "langgraph_auth_permissions": [],
+        "langgraph_auth_user": null,
+        "langgraph_auth_user_id": "",
+        "langgraph_request_id": "<uuid-2>",
+        "run_id": "<uuid-3>",
+        "thread_id": "<uuid-4>",
+        "user_id": ""
+      },
+      "metadata": {
+        "assistant_id": "<uuid-1>",
+        "created_by": "system",
+        "langgraph_api_url": "<env>",
+        "langgraph_api_version": "<env>",
+        "langgraph_host": "<env>",
+        "langgraph_plan": "<env>",
+        "langgraph_version": "<env>",
+        "run_attempt": 1
+      }
+    },
+    "context": {},
+    "durability": "sync",
+    "feedback_keys": null,
+    "input": {
+      "messages": [
+        {
+          "content": "webhook probe",
+          "role": "user"
+        }
+      ]
+    },
+    "interrupt_after": null,
+    "interrupt_before": null,
+    "resumable": true,
+    "stream_mode": [
+      "values"
+    ],
+    "subgraphs": false,
+    "temporary": false,
+    "webhook": "http://127.0.0.1:<port>/webhooks/run-complete?token=contract-secret"
+  },
+  "metadata": {
+    "assistant_id": "<uuid-1>",
+    "created_by": "system"
+  },
+  "multitask_strategy": "interrupt",
+  "run_ended_at": "<ts>",
+  "run_id": "<uuid-3>",
+  "run_started_at": "<ts>",
+  "status": "success",
+  "thread_id": "<uuid-4>",
+  "updated_at": "<ts>",
+  "values": {
+    "messages": [
+      {
+        "additional_kwargs": {},
+        "content": "webhook probe",
+        "id": "<uuid-5>",
+        "name": null,
+        "response_metadata": {},
+        "type": "human"
+      },
+      {
+        "additional_kwargs": {},
+        "content": "echo: webhook probe",
+        "id": "lc_run--<uuid-6>-0",
+        "invalid_tool_calls": [],
+        "name": null,
+        "response_metadata": {},
+        "tool_calls": [],
+        "type": "ai",
+        "usage_metadata": null
+      }
+    ]
+  },
+  "webhook_sent_at": "<ts>"
+}

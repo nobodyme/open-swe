@@ -118,7 +118,6 @@ async def create_durable_run(
     if_not_exists: str = "create",
     stream_mode: Any | None = None,
     stream_resumable: bool | None = None,
-    after_seconds: int | float | None = None,
 ) -> Run:
     """Create a run with Open SWE's durable LangGraph defaults."""
     client = client or dispatch_client()
@@ -135,8 +134,6 @@ async def create_durable_run(
         create_kwargs["stream_mode"] = stream_mode
     if stream_resumable is not None:
         create_kwargs["stream_resumable"] = stream_resumable
-    if after_seconds is not None:
-        create_kwargs["after_seconds"] = after_seconds
 
     run = await client.runs.create(thread_id, assistant_id, **create_kwargs)
     logger.info(

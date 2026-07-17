@@ -15,7 +15,8 @@ from langchain.agents.middleware import AgentState, before_model
 from langgraph.config import get_config, get_store
 from langgraph.runtime import Runtime
 from langgraph.store.base import BaseStore
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..dashboard.options import model_supports_images
 from ..utils.dashboard_handoff import (  # noqa: F401
@@ -37,7 +38,7 @@ class LinearNotifyState(AgentState):
 async def _resolve_thread_model_id(thread_id: str) -> str | None:
     """Read the resolved model from thread metadata (set by ``get_agent``)."""
     try:
-        client = get_client()
+        client = langgraph_client()
         thread = await client.threads.get(thread_id)
         metadata = thread.get("metadata") if isinstance(thread, dict) else None
         if not isinstance(metadata, dict):

@@ -1,0 +1,10 @@
+{
+  "id": 1,
+  "meta": {
+    "applied_through_seq": 0
+  },
+  "result": {
+    "run_id": "<uuid-1>"
+  },
+  "type": "success"
+}

@@ -381,13 +381,14 @@ async def _update_thread_sandbox_metadata(sandbox_id: str) -> None:
     """Update thread metadata with sandbox_id."""
     try:
         from langgraph.config import get_config
-        from langgraph_sdk import get_client
+
+        from agent.utils.thread_ops import langgraph_client
 
         config = get_config()
         thread_id = config.get("configurable", {}).get("thread_id")
         if not thread_id:
             return
-        client = get_client()
+        client = langgraph_client()
         await client.threads.update(
             thread_id=thread_id,
             metadata={"sandbox_id": sandbox_id},

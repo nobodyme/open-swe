@@ -18,8 +18,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
-from langgraph_sdk import get_client
 from pydantic import BaseModel, model_validator
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..encryption import decrypt_token, encrypt_token
 from .oauth import (
@@ -117,7 +118,7 @@ def normalize_profile_for_response(profile: dict[str, Any]) -> dict[str, Any]:
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 async def _get_value(namespace: list[str], key: str) -> dict[str, Any] | None:

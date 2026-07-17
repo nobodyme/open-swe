@@ -39,6 +39,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.15.20",
     "Pygments>=2.20.0",
+    "psycopg[binary]>=3.2",
 ]
 
 [tool.uv]
@@ -79,6 +80,14 @@ ignore = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Default runs stay hermetic: no Docker, no server, no network LLM.
+# `make contract-test` opts back in with `-m contract`; litellm tests are
+# opt-in via `-m litellm` (docs/fast-api-migration/phase-0.md §1 name ledger).
+addopts = "-m 'not contract and not litellm'"
+markers = [
+    "contract: requires Docker Postgres and/or a running langgraph server (make contract-test)",
+    "litellm: calls the local LiteLLM proxy configured in .env (opt-in)",
+]
 
 [tool.basedpyright]
 venvPath = "."

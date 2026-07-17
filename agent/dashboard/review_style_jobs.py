@@ -9,6 +9,8 @@ from typing import Any
 
 from langgraph_sdk import get_client
 
+from agent.utils.thread_ops import langgraph_client
+
 from ..dispatch import create_durable_run
 from ..review.style_collector import (
     collect_review_samples,
@@ -35,7 +37,7 @@ def _client():
     url = os.environ.get("LANGGRAPH_URL") or os.environ.get("LANGGRAPH_URL_PROD")
     if url:
         return get_client(url=url)
-    return get_client()
+    return langgraph_client()
 
 
 def build_continual_run_input(full_name: str) -> dict[str, Any]:
