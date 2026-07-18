@@ -5,7 +5,7 @@ This guide walks you through setting up Open SWE end-to-end: local development, 
 
 Open SWE has two runnable pieces:
 
-- **The backend** — a LangGraph app (three graphs: `agent`, `reviewer`, `analyzer`) plus a FastAPI app (`agent.webapp:app`) that owns the webhooks and the dashboard API. Both are served together by `langgraph dev`.
+- **The backend** — the self-hosted FastAPI `agent_runtime` serves the five graphs declared in `langgraph.json` (`agent`, `reviewer`, `analyzer`, `chat`, and `scheduler`) together with `agent.webapp:app`, which owns webhooks and the dashboard API. `make dev` is the supported default for local development and the same runtime is used in production.
 - **The dashboard** — a TanStack Start + Vite web app in `ui/` (package name `open-swe-dashboard`). It's a thin client over the FastAPI dashboard API (`/dashboard/api/*`): GitHub-login, per-user model/profile settings, team defaults, enabled-repo and review-style management, user mappings, and the Agents chat UI. It's optional for pure webhook-driven use, but recommended.
 
 > **The steps are ordered to avoid forward references.** Each step only depends on things you've already completed.
@@ -14,9 +14,26 @@ Open SWE has two runnable pieces:
 
 - **Python 3.11 – 3.13** (3.14 is not yet supported due to dependency constraints)
 - [uv](https://docs.astral.sh/uv/) package manager
-- [LangGraph CLI](https://docs.langchain.com/langsmith/cli)
-- [ngrok](https://ngrok.com/) (for local development — exposes webhook endpoints to the internet)
+- Docker with Compose (required by `make dev` for the bundled local Postgres)
+- [ngrok](https://ngrok.com/) (only when testing inbound GitHub, Slack, or Linear webhooks locally)
 - [pnpm](https://pnpm.io/) (only if you want to run the dashboard UI locally — see step 8). Node 20+ also works, but `ui/pnpm-lock.yaml` is the canonical lockfile.
+
+### Runtime choices and licensing
+
+- **Default and production runtime:** `make dev` runs `agent_runtime`, the
+  self-hosted FastAPI runtime backed by Postgres. Its serving path uses the
+  MIT-licensed `langgraph`, `langgraph-sdk`, and checkpoint/store packages;
+  it does not import `langgraph-api` or `langgraph-runtime-inmem`.
+- **Old comparison runtime:** `make dev-platform` directly invokes
+  `uv run langgraph dev`, the old pre-migration server. It does **not** run
+  `agent_runtime`. It is retained only as a development parity oracle:
+  contract goldens were captured from it and CI runs one comparison E2E leg.
+  The `langgraph-cli[inmem]` dependency installs the Elastic-2.0-licensed
+  `langgraph-api` and `langgraph-runtime-inmem` packages for this purpose.
+  Neither package is needed or imported when serving `agent_runtime`.
+
+Normal local product work should use `make dev`. Use `make dev-platform` only
+when intentionally comparing behavior against the historical runtime.
 
 ## 1. Clone and install
 
@@ -374,7 +391,7 @@ Users can also override the team/project mapping per-comment by including `repo:
 
 **Slack URL checklist:**
 
-Both Slack URLs must point at the Open SWE backend that serves `agent.webapp:app` (locally, your ngrok URL forwarding to `langgraph dev`; in production, your LangGraph/FastAPI deployment URL), not the dashboard frontend URL.
+Both Slack URLs must point at the Open SWE backend that serves `agent.webapp:app` (locally, your ngrok URL forwarding to `make dev`; in production, your FastAPI backend deployment URL), not the dashboard frontend URL.
 
 - **Event Subscriptions → Request URL:** `https://<your-backend-url>/webhooks/slack`
 - **Interactivity & Shortcuts → Interactivity Request URL:** `https://<your-backend-url>/webhooks/slack/interactivity`
@@ -560,10 +577,15 @@ Make sure ngrok is still running from step 2, then start the backend in a second
 
 ```bash
 make dev          # agent_runtime (self-hosted, MIT) + Docker Postgres on :2024
-# or: make dev-platform   # the Elastic-licensed `langgraph dev` server
+make dev-platform # OLD runtime: invokes `uv run langgraph dev`; comparison only
 ```
 
 `make dev` (Docker required for the bundled Postgres) serves **all graphs** (`agent`, `reviewer`, `analyzer`, …) *and* the FastAPI app (`agent.webapp:app`) together on `http://localhost:2024`. The FastAPI app owns both the webhooks and the dashboard API:
+
+`make dev-platform` bypasses the new FastAPI runtime and starts the old
+pre-migration `langgraph dev` runtime. It is not an alternative production or
+normal local setup; it exists only so maintainers can compare wire behavior
+and E2E flows during migration verification.
 
 | Endpoint | Purpose |
 |---|---|
@@ -664,11 +686,11 @@ Production runs the backend and dashboard separately.
    localhost values). The dashboard GitHub App callback must be
    `<DASHBOARD_API_BASE_URL>/dashboard/api/auth/callback`.
 
-> `langgraph.json` (graphs + `http.app` + `env`) is read by BOTH runtimes: it
-> configures `agent_runtime` in production and the `make dev-platform`
-> (`langgraph dev`) path locally. `langgraph dev` itself is Elastic-licensed
-> and permitted for local development only — it is never the production
-> runtime here.
+> `langgraph.json` (graphs + `http.app` + `env`) is read by both runtimes. It
+> configures `agent_runtime` for normal local and production use, and also
+> configures the historical `make dev-platform` comparison path. The latter's
+> Elastic-licensed packages are development-only parity tooling and are never
+> imported by the production serving path.
 
 **Separate SaaS dependencies (out of scope for the runtime migration):**
 `SANDBOX_TYPE=langsmith` sandboxes (step 4c) and LangSmith tracing (step 4a)

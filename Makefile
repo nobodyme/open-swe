@@ -28,8 +28,8 @@ dev:
 	AGENT_RUNTIME_LOG_LEVEL=$${AGENT_RUNTIME_LOG_LEVEL:-info} \
 		uv run uvicorn agent_runtime.app:app --host 127.0.0.1 --port 2024 --reload
 
-# The Elastic-licensed langgraph dev server, kept available during the
-# migration for comparison; not the default.
+# OLD pre-migration runtime: directly invokes the Elastic-licensed langgraph
+# dev server for parity comparison. It does not run agent_runtime.
 dev-platform:
 	uv run langgraph dev
 
@@ -92,7 +92,7 @@ typecheck:
 help:
 	@echo '----'
 	@echo 'dev                          - run agent_runtime + Postgres (default dev runtime)'
-	@echo 'dev-platform                 - run the langgraph dev server (Elastic-licensed)'
+	@echo 'dev-platform                 - run OLD pre-migration langgraph dev (comparison only)'
 	@echo 'run                          - run webhook server'
 	@echo 'install                      - install dependencies (incl. dev extras)'
 	@echo 'format                       - run code formatters'
