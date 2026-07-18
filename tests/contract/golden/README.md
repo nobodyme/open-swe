@@ -1,19 +1,24 @@
-# Golden transcripts — the `langgraph dev` baseline
+# Golden transcripts — the `langgraph dev` baseline (frozen)
 
-Captured by `tests/contract/test_langgraph_api_contract.py` against `langgraph dev`
-(the Elastic-licensed `langgraph-api` inmem runtime) serving the deterministic
-contract graph (`tests/contract/contract_graph.py`). They are Phase 1's parity
-oracle: `agent_runtime` must reproduce these responses byte-for-byte after
-normalization, or record an entry in the divergence ledger below.
+Captured during Phase 0 by `tests/contract/test_langgraph_api_contract.py`
+against `langgraph dev` (the Elastic-licensed `langgraph-api` inmem runtime)
+serving the deterministic contract graph (`tests/contract/contract_graph.py`).
+They are the parity oracle: `agent_runtime` must reproduce these responses
+byte-for-byte after normalization, or record an entry in the divergence ledger
+below.
+
+**The baseline runtime has since been removed** (`langgraph-cli[inmem]` is no
+longer a dependency), so these files are frozen recordings of a server that can
+no longer be booted from this repo. `CONTRACT_RECORD=1` now records from
+`agent_runtime` itself — re-record a golden only for a deliberate, reviewed
+contract change, never to make a failing test pass.
 
 **Run via `make contract-test`** — bare `pytest tests/contract` selects nothing
 by design (`addopts = "-m 'not contract and not litellm'"` in `pyproject.toml`).
 A missing golden is a HARD FAILURE, never silently re-recorded — recording
 requires an explicit `CONTRACT_RECORD=1 make contract-test` (delete the stale
-file first for a deliberate re-record). The server boots in a session tmpdir
-(cwd controls both graph-path resolution and the inmem `.langgraph_api` state
-dir), so every session starts from an empty baseline without touching the
-developer's repo-root dev state.
+file first for a deliberate re-record). The server boots in a session tmpdir,
+so every session starts from an empty baseline.
 
 ## Normalization rules (`tests/contract/normalize.py`)
 
@@ -52,13 +57,13 @@ developer's repo-root dev state.
 | `stream_events_transcript.json` | Live SSE transcript of `POST /threads/{id}/stream/events` (channels: values/updates/messages/tools/lifecycle): lifecycle running → values ×2 → lifecycle completed; SSE `id:` carries the session `seq`, body `event_id` carries the durable id. |
 | `join_stream_after_completion.json` | `runs.join_stream` on a finished run replays nothing (see ledger). |
 
-## Contract runtime switch (Phase 1)
+## Contract runtime
 
-`CONTRACT_RUNTIME=platform` (default) boots `langgraph dev` — the golden
-baseline. `CONTRACT_RUNTIME=embedded` boots `uvicorn agent_runtime.app:app`
-over a fresh Postgres database (compose) and must match the same goldens.
-Both are Phase 1 acceptance gates; the platform run proves the suite wasn't
-bent to fit the new runtime.
+The suite boots `uvicorn agent_runtime.app:app` over a fresh Postgres database
+(compose). Historically a `CONTRACT_RUNTIME=platform|embedded` switch could
+boot `langgraph dev` to prove the suite wasn't bent to fit the new runtime;
+that leg was removed with the `langgraph-cli` dependency after both runtimes
+passed the same goldens (docs/fast-api-migration/COMPLETENESS.md).
 
 ## Divergence ledger (dev behavior Phase 1 may deliberately differ from)
 
@@ -108,11 +113,22 @@ bent to fit the new runtime.
      behave identically on both.
    - Run-level `stream_mode="events"` (the `astream_events` firehose) is
      accepted-and-ignored by `agent_runtime` (no app caller, no v2 channel —
-     D6); the per-mode golden test skips it under `CONTRACT_RUNTIME=embedded`.
+     D6); the per-mode golden test skips it.
    - The v2 `messages` channel carries only streamed token chunks
      (`messages/partial`); whole-message completes stay on the SDK stream —
      matching the dev transcript's lifecycle+values-only shape for
      non-streaming models.
+   - Failure-path lifecycle name: no golden pins it (`stream_events_transcript.json`
+     recorded only a successful run), so `agent_runtime` emits `failed` for
+     error/timeout terminals per the SDK's consumer contract
+     (`lifecycleReason()` resolves only completed/failed/interrupted); failed
+     runs also carry the exception text in the run record's `error` key
+     (absent on success — the success goldens pin a body without it).
+   - No injected `recursion_limit` default: dev passed none through (no golden
+     carries one), so the executor leaves an absent limit to the graph
+     factory's `.with_config` binding (the app pins 9999 there). An earlier
+     injected default of 100 silently overrode the binding and killed real
+     runs mid-task; `test_factory_bound_recursion_limit_governs` pins the fix.
 
 ## Cross-phase name ledger (binding, from docs/fast-api-migration/phase-0.md §1)
 
@@ -121,8 +137,8 @@ bent to fit the new runtime.
   reuses it or adds its own marker to the same exclusion, with skip-when-absent).
 - `make contract-test` — the only supported way to run this suite.
 - `tests/support/postgres.py` + `TEST_POSTGRES_DSN` — ephemeral-Postgres fixture.
-- `RUNTIME=platform|embedded` — Playwright webServer switch
-  (`embedded` = `uvicorn agent_runtime.app:app`).
+- `RUNTIME=platform|embedded` — the historical Playwright webServer switch;
+  the platform leg was removed with `langgraph-cli` (embedded only now).
 - `tests/agent/test_no_bare_get_client.py` — guard that Phase 3 upgrades to a
   ruff/CI rule.
 - tests/e2e import ban — unit/contract tests never import `tests/e2e` modules.

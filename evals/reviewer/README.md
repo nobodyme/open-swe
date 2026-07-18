@@ -22,7 +22,7 @@ evals/reviewer/
 - `LANGSMITH_API_KEY` set in your env.
 - `gh` authenticated (`gh auth status`) — needed for `build_dataset.py`.
 - `ANTHROPIC_API_KEY` set — judge runs `claude-opus-4-5`.
-- A running reviewer graph (local `langgraph dev` or deployed assistant id) with
+- A running reviewer graph (local `make dev` (agent_runtime) or deployed assistant id) with
   `REVIEWER_ASSISTANT_ID` env var pointing at it. Defaults to assistant `reviewer`
   on `http://localhost:2024`.
 

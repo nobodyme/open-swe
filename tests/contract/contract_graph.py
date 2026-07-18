@@ -1,9 +1,8 @@
-"""Deterministic graph served by ``langgraph dev`` for the contract suite.
+"""Deterministic graph served by the contract server (``agent_runtime``).
 
-This module is loaded by the dev server via a config that ``conftest.py``
-generates into the server's session tmpdir (absolute paths, because the inmem
-runtime resolves graph paths and its ``.langgraph_api`` state dir against
-cwd). Pattern copied from ``tests/e2e`` — no imports from it, per
+This module is loaded via a config that ``conftest.py`` generates into the
+server's session tmpdir (absolute paths, because the server boots with cwd
+there). Pattern copied from ``tests/e2e`` — no imports from it, per
 docs/fast-api-migration/phase-0.md task 4a. It must stay
 fully self-contained: no sandbox, no ``agent/`` imports, no network calls, and
 a scripted fake model so every transcript the contract tests capture is

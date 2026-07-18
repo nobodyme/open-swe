@@ -1,4 +1,4 @@
-.PHONY: all format format-check lint typecheck test tests integration_tests contract-test help run dev dev-platform
+.PHONY: all format format-check lint typecheck test tests integration_tests contract-test help run dev
 
 # Default target executed when no arguments are given to make.
 all: help
@@ -26,12 +26,9 @@ dev:
 	SANDBOX_TYPE=$${SANDBOX_TYPE:-$$(grep -E '^SANDBOX_TYPE=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d "\"'" )} ; \
 	DATABASE_URL=$(DEV_DATABASE_URL) SANDBOX_TYPE=$${SANDBOX_TYPE:-local} \
 	AGENT_RUNTIME_LOG_LEVEL=$${AGENT_RUNTIME_LOG_LEVEL:-info} \
-		uv run uvicorn agent_runtime.app:app --host 127.0.0.1 --port 2024 --reload
-
-# OLD pre-migration runtime: directly invokes the Elastic-licensed langgraph
-# dev server for parity comparison. It does not run agent_runtime.
-dev-platform:
-	uv run langgraph dev
+		uv run uvicorn agent_runtime.app:app --host 127.0.0.1 --port 2024 --reload \
+			--reload-dir agent --reload-dir agent_runtime \
+			--timeout-graceful-shutdown 5  # open SSE streams never drain; without a cap a reload wedges forever
 
 run:
 	uv run uvicorn agent.webapp:app --reload --port 8000
@@ -52,7 +49,7 @@ test tests:
 		echo "Skipping tests: path not found: $(TEST_FILE)"; \
 	fi
 
-# Contract suite: needs Docker (ephemeral Postgres) and boots langgraph dev on
+# Contract suite: needs Docker (ephemeral Postgres) and boots agent_runtime on
 # an ephemeral port. Excluded from `make test` via pyproject addopts.
 # Missing goldens fail hard; record new ones with CONTRACT_RECORD=1 make contract-test.
 contract-test:
@@ -92,13 +89,12 @@ typecheck:
 help:
 	@echo '----'
 	@echo 'dev                          - run agent_runtime + Postgres (default dev runtime)'
-	@echo 'dev-platform                 - run OLD pre-migration langgraph dev (comparison only)'
 	@echo 'run                          - run webhook server'
 	@echo 'install                      - install dependencies (incl. dev extras)'
 	@echo 'format                       - run code formatters'
 	@echo 'lint                         - run linters'
 	@echo 'typecheck                    - run basedpyright on agent/ and tests/'
 	@echo 'test                         - run unit tests'
-	@echo 'contract-test                - run contract suite (Docker Postgres + langgraph dev)'
+	@echo 'contract-test                - run contract suite (Docker Postgres + agent_runtime)'
 	@echo 'integration_tests            - run integration tests'
 	@echo '----'

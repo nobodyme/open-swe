@@ -4,11 +4,12 @@ Everything in tests/contract/ carries the ``contract`` marker and is excluded
 from the default run by ``pyproject.toml``'s ``addopts``. Run via
 ``make contract-test``.
 
-``contract_server`` boots the golden baseline — ``langgraph dev`` serving the
-deterministic contract graph (tests/contract/contract_graph.py) — once per
-session on an ephemeral port. It deliberately does NOT use tests/e2e/harness.py
-(server semantics need no webapp) and does NOT import tests/e2e modules
-(docs/fast-api-migration/phase-0.md task 4a).
+``contract_server`` boots ``agent_runtime`` serving the deterministic contract
+graph (tests/contract/contract_graph.py) — once per session on an ephemeral
+port — and pins it against the golden transcripts recorded from ``langgraph
+dev`` before its removal (tests/contract/golden/README.md). It deliberately
+does NOT use tests/e2e/harness.py (server semantics need no webapp) and does
+NOT import tests/e2e modules (docs/fast-api-migration/phase-0.md task 4a).
 """
 
 from __future__ import annotations
@@ -73,21 +74,13 @@ def _fresh_database(admin_dsn: str) -> str:
 def contract_server(
     tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest
 ) -> Iterator[ContractServer]:
-    """The server under contract test.
+    """The server under contract test: ``uvicorn agent_runtime.app:app`` over a
+    fresh Postgres database (phase-1.md T11), pinned against the goldens
+    recorded from the removed ``langgraph dev`` baseline.
 
-    ``CONTRACT_RUNTIME=platform`` (default): ``langgraph dev`` — the golden
-    baseline, exactly as Phase 0 shipped it.
-    ``CONTRACT_RUNTIME=embedded``: ``uvicorn agent_runtime.app:app`` over a
-    fresh Postgres database (phase-1.md T11) — must match the same goldens.
-
-    Boots with cwd = a session tmpdir, because the inmem runtime resolves BOTH
-    the graph paths and its persistence dir (``.langgraph_api``) against cwd.
-    A fresh tmpdir per session gives an empty golden baseline without touching
-    the developer's repo-root ``.langgraph_api`` (a concurrently running
-    ``make dev`` keeps its state; goldens keep their fresh-server assumption).
-    The generated config therefore uses absolute paths.
+    Boots with cwd = a session tmpdir so the goldens keep their fresh-server
+    assumption; the generated config therefore uses absolute paths.
     """
-    runtime = os.environ.get("CONTRACT_RUNTIME", "platform")
     workdir = tmp_path_factory.mktemp("contract-server")
     config_path = workdir / "langgraph.contract.json"
     config_path.write_text(
@@ -101,56 +94,34 @@ def contract_server(
     )
     port = _free_port()
     env = dict(os.environ)
-    # The baseline must stay hermetic: no tracing/telemetry side channels.
+    admin_dsn = request.getfixturevalue("postgres_dsn")
     env.update(
         {
+            # The suite must stay hermetic: no tracing/telemetry side channels.
             "LANGSMITH_TRACING": "false",
             "LANGCHAIN_TRACING_V2": "false",
-            "LANGGRAPH_CLI_NO_ANALYTICS": "1",
+            "DATABASE_URL": _fresh_database(admin_dsn),
+            "AGENT_RUNTIME_CONFIG": str(config_path),
+            "AGENT_RUNTIME_NO_WEBAPP": "1",
+            # Contract timing matches the removed baseline's fast inmem pickup;
+            # the queue delay is pinned by its own runtime test.
+            "AGENT_RUNTIME_PICKUP_DELAY_MS": "0",
         }
     )
-    if runtime == "embedded":
-        admin_dsn = request.getfixturevalue("postgres_dsn")
-        env.update(
-            {
-                "DATABASE_URL": _fresh_database(admin_dsn),
-                "AGENT_RUNTIME_CONFIG": str(config_path),
-                "AGENT_RUNTIME_NO_WEBAPP": "1",
-                # Contract timing matches dev's fast inmem pickup; the queue
-                # delay is pinned by its own runtime test.
-                "AGENT_RUNTIME_PICKUP_DELAY_MS": "0",
-            }
-        )
-        command = [
-            "uv",
-            "run",
-            "--project",
-            str(REPO_ROOT),
-            "uvicorn",
-            "agent_runtime.app:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-            "--log-level",
-            "warning",
-        ]
-    else:
-        command = [
-            "uv",
-            "run",
-            "--project",
-            str(REPO_ROOT),
-            "langgraph",
-            "dev",
-            "--config",
-            str(config_path),
-            "--port",
-            str(port),
-            "--no-browser",
-            "--allow-blocking",
-            "--no-reload",
-        ]
+    command = [
+        "uv",
+        "run",
+        "--project",
+        str(REPO_ROOT),
+        "uvicorn",
+        "agent_runtime.app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--log-level",
+        "warning",
+    ]
     # Server output goes to a file, not a PIPE: nothing drains a pipe during
     # the session, and a full pipe buffer would block the server mid-suite.
     log_path = workdir / "contract-server.log"
@@ -169,7 +140,7 @@ def contract_server(
         while time.monotonic() < deadline:
             if proc.poll() is not None:
                 raise RuntimeError(
-                    f"langgraph dev exited with {proc.returncode} during boot:\n"
+                    f"contract server exited with {proc.returncode} during boot:\n"
                     f"{log_path.read_text(errors='replace')[-4000:]}"
                 )
             try:
@@ -182,7 +153,7 @@ def contract_server(
         else:
             proc.terminate()
             raise RuntimeError(
-                f"langgraph dev not ready after {_BOOT_TIMEOUT_S}s: {last_error}\n"
+                f"contract server not ready after {_BOOT_TIMEOUT_S}s: {last_error}\n"
                 f"{log_path.read_text(errors='replace')[-4000:]}"
             )
         yield ContractServer(base_url=base_url, port=port)

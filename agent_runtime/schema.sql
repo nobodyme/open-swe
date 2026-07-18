@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS rt_run (
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS rt_run_thread_status_idx ON rt_run (thread_id, status);
+-- Additive migration: existing databases skip the CREATE TABLE above.
+ALTER TABLE rt_run ADD COLUMN IF NOT EXISTS error TEXT;
 
 CREATE TABLE IF NOT EXISTS rt_cron (
   cron_id      UUID PRIMARY KEY,

@@ -375,3 +375,22 @@ async def test_interrupting_graph_marks_run_and_thread_interrupted(sdk_client: A
     )
     result = await sdk_client.runs.join(thread_id, resume["run_id"])
     assert result["messages"][-1]["content"] == "resolution: approved"
+
+
+async def test_factory_bound_recursion_limit_governs(sdk_client: Any) -> None:
+    """No injected recursion_limit default: a factory that pins the limit via
+    .with_config must govern (limited_loop needs ~121 steps; an injected 100
+    would kill it — a real dashboard run died exactly this way)."""
+    thread_id = _tid()
+    run = await sdk_client.runs.create(
+        thread_id,
+        "limited_loop",
+        input={"messages": [{"role": "user", "content": "spin"}]},
+        if_not_exists="create",
+    )
+    await sdk_client.runs.join(thread_id, run["run_id"])
+
+    finished = await sdk_client.runs.get(thread_id, run["run_id"])
+    assert finished["status"] == "success", finished.get("error")
+    state = await sdk_client.threads.get_state(thread_id)
+    assert state["values"]["messages"][-1]["content"] == "looped 120"

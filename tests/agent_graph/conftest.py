@@ -1,4 +1,4 @@
-"""Stub seam for invoking the real compiled agent graph with no langgraph dev.
+"""Stub seam for invoking the real compiled agent graph with no server process.
 
 Every patch below fakes an *external boundary* of ``agent.server.get_agent``;
 the deepagents loop, the middleware stack, and the tools stay real. Each stub

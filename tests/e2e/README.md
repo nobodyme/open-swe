@@ -3,7 +3,7 @@
 This drives the **whole happy path** through two mock UIs:
 
 1. A user asks Open SWE to implement something in a **mock Slack** thread.
-2. The **real agent** runs (via `langgraph dev`): it implements the change in a
+2. The **real agent** runs (via `agent_runtime`): it implements the change in a
    **local temp-dir sandbox**, pushes a branch, and opens a PR on a **fake GitHub**.
 3. It posts the PR link back to the **same Slack thread** — visible in the mock UI.
 
@@ -62,7 +62,7 @@ UI change or port change). Requires Corepack with `pnpm` enabled.
 cd tests/e2e
 npm install
 npx playwright install chromium
-npx playwright test          # boots langgraph dev automatically, then runs
+npx playwright test          # boots agent_runtime (+ Docker Postgres) automatically, then runs
 ```
 
 Watch it in human time:
@@ -90,7 +90,6 @@ then `npx playwright show-report <unzipped-dir>` (or drag a `trace.zip` onto
 Poke at it by hand (from the repo root):
 
 ```bash
-uv run langgraph dev --config tests/e2e/langgraph.e2e.json --port 2024 \
-  --no-browser --allow-blocking --no-reload
+bash tests/e2e/run-embedded.sh
 # open http://127.0.0.1:2024/mock/slack  and  /mock/github
 ```

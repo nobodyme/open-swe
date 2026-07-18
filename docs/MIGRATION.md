@@ -8,6 +8,12 @@ state is a self-hosted runtime built entirely from MIT-licensed packages
 plain infrastructure (e.g. a single EC2 instance + RDS Postgres) with no
 LangGraph Cloud/Platform license.
 
+> **Status (2026-07-18):** the migration is complete, and `langgraph-cli[inmem]`
+> has since been removed entirely — `make dev-platform` is gone, the contract
+> suite boots `agent_runtime` only, and the golden transcripts in
+> `tests/contract/golden/` remain as frozen Phase-0 recordings from
+> `langgraph dev`. The rest of this document is the historical design record.
+
 See the licensing discussion that motivated this doc for background on the
 Elastic License 2.0 boundary — it applies to `langgraph-api` specifically, not
 to `langgraph`, `langgraph-sdk`, `langchain-core`, `deepagents`, or the
@@ -297,7 +303,9 @@ a real reachable address either way.
 - **`langgraph.json` / `langgraph dev`**: kept as a **local-dev-only** path
   (already covered by the Elastic license's non-production terms), clearly
   documented as such. Once Phase 2 lands, it is a comparison/debugging tool,
-  not the default runtime.
+  not the default runtime. [Since removed — 2026-07-18: `langgraph dev` is
+  gone entirely; `langgraph.json` lives on as `agent_runtime`'s own config
+  file.]
 - **Infra (build phase)**: a local/CI `docker-compose` Postgres is all that's
   needed now. The eventual deployment footprint this design implies — one box
   running `uvicorn` + one Postgres instance (e.g. EC2 + RDS), no Redis, no
@@ -466,7 +474,7 @@ just: the app works on the new runtime, provably.
    completion webhook on every terminal run
 4. Flip the default: make `agent-runtime` (+ docker-compose Postgres) the
    documented way to run the stack; `langgraph dev` remains available but
-   is no longer the default path
+   is no longer the default path [Since removed — 2026-07-18]
 
 **Phase 3 — Hygiene**
 1. Add a lint guard banning bare `get_client()` calls (no `url=`) — e.g. a
@@ -476,7 +484,8 @@ just: the app works on the new runtime, provably.
    silently bind to the Elastic runtime in dev; the lint makes the
    regression loud at review time instead. (`langgraph-cli[inmem]` itself
    stays a normal dependency — ELv2 permits dev use, and having the package
-   installed violates nothing. Licensing facts for the record:
+   installed violates nothing. [Since removed — 2026-07-18: it is no longer
+   a dependency at all.] Licensing facts for the record:
    `langgraph-cli` is MIT; its `[inmem]` extra pulls `langgraph-api` and
    `langgraph-runtime-inmem`, the only Elastic-2.0 packages in the
    dependency tree. If a deployment artifact is ever built, excluding the

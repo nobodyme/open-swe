@@ -117,13 +117,22 @@ async def refresh_proxy_token(
     repositories: Sequence[str] | None = None,
     permissions: PermissionMap | None = None,
 ) -> bool:
-    """Re-configure a LangSmith sandbox proxy with a freshly minted token."""
-    if os.getenv("SANDBOX_TYPE", "langsmith") != "langsmith" or not thread_id:
+    """Re-mint the sandbox's GitHub token (LangSmith proxy or local backend)."""
+    if not thread_id:
         return False
 
     sandbox_backend = SANDBOX_BACKENDS.get(thread_id)
-    if sandbox_backend is None:
+    if sandbox_backend is None or not getattr(sandbox_backend, "has_backend", True):
         return False
+
+    set_github_token = None
+    if os.getenv("SANDBOX_TYPE", "langsmith") != "langsmith":
+        from ..integrations.local import GitHubTokenLocalShellBackend
+
+        current_backend = unwrap_sandbox_backend(sandbox_backend)
+        if not isinstance(current_backend, GitHubTokenLocalShellBackend):
+            return False
+        set_github_token = current_backend.set_github_token
 
     _expires, _recorded, recorded_repositories, recorded_permissions = _unpack_proxy_token_record(
         _PROXY_TOKEN_EXPIRY.get(thread_id, (None, None, None, ()))
@@ -140,10 +149,13 @@ async def refresh_proxy_token(
         logger.warning("Proxy token refresh for thread %s failed: no installation token", thread_id)
         return False
 
-    from ..integrations.langsmith import _configure_github_proxy
+    if set_github_token is not None:
+        set_github_token(token)
+    else:
+        from ..integrations.langsmith import _configure_github_proxy
 
-    current_backend = unwrap_sandbox_backend(sandbox_backend)
-    await _configure_github_proxy(current_backend.id, token)
+        current_backend = unwrap_sandbox_backend(sandbox_backend)
+        await _configure_github_proxy(current_backend.id, token)
     record_proxy_token_expiry(
         thread_id,
         expires_at,
@@ -155,10 +167,11 @@ async def refresh_proxy_token(
 
 
 async def maybe_refresh_proxy_token(thread_id: str | None, *, now: datetime | None = None) -> bool:
-    """Re-configure the sandbox proxy with a fresh token when near expiry.
+    """Re-configure the sandbox's GitHub token when near expiry.
 
-    Returns True when a refresh was performed. Only applies to LangSmith
-    sandboxes; other providers don't use the proxy.
+    Returns True when a refresh was performed. Applies to LangSmith sandboxes
+    (proxy re-configuration) and local sandboxes (in-process token swap for the
+    ``GH_TOKEN=dummy`` sentinel); other providers are untouched.
     """
     if not thread_id or not proxy_token_needs_refresh(thread_id, now=now):
         return False

@@ -63,9 +63,11 @@ Postgres. Nothing in `agent/` changed behavior: the app still talks to
 - Runtime dependencies of the serving path: MIT only. The import-hygiene
   test pins that `agent_runtime.app`'s transitive closure contains neither
   `langgraph_api` nor `langgraph_runtime_inmem`.
-- `langgraph-cli[inmem]` remains a NORMAL dependency by decision — ELv2
-  permits development use; `make dev-platform` and the contract baseline
-  need it. Production never imports it.
+- `langgraph-cli[inmem]` has since been removed entirely (2026-07-18) — no
+  ELv2 code is installed, even for development. `make dev-platform` is gone;
+  the contract goldens are frozen Phase-0 recordings. Re-recording via
+  `CONTRACT_RECORD=1` now records from `agent_runtime` itself, so goldens
+  should only be re-recorded for deliberate contract changes.
 - Guards: ruff TID251 bans `langgraph_sdk.get_client`/`get_sync_client`
   outside the two URL-resolving helpers (fires in `make lint` and editors);
   the import-hygiene subprocess probes are the dynamic pin.
@@ -113,10 +115,11 @@ Postgres. Nothing in `agent/` changed behavior: the app still talks to
 
 ## How to keep it honest
 
-- `make contract-test` (+ `CONTRACT_RUNTIME=embedded`) is the parity oracle;
-  goldens re-record only via `CONTRACT_RECORD=1`.
-- `RUNTIME=platform|embedded npx playwright test` is the acceptance
-  instrument; CI runs both.
+- `make contract-test` is the parity oracle (always boots `agent_runtime`);
+  goldens re-record only via `CONTRACT_RECORD=1`, and only for deliberate
+  contract changes — they are frozen Phase-0 recordings from `langgraph dev`.
+- `npx playwright test` is the acceptance instrument (embedded only; CI runs
+  a single e2e job).
 - `RUN_CHAOS=1 uv run pytest tests/chaos/` is the durability floor.
 - Every deliberate behavior difference goes in the divergence ledger, in the
   same commit as the change.

@@ -180,6 +180,81 @@ async def test_stream_events_v2_live_and_since_resume(sdk_client: Any, runtime_s
         assert resumed_seqs == seqs[1:]
 
 
+async def test_stream_events_v2_failed_run_lifecycle_and_error(
+    sdk_client: Any, runtime_server: Any
+) -> None:
+    """Failure path: a live v2 subscriber AND a post-mortem replay both end
+    with lifecycle "failed" — the only error name the SDK's lifecycleReason()
+    resolves — and the run record carries the exception text."""
+    thread_id = _tid()
+    await sdk_client.threads.create(thread_id=thread_id)
+
+    async with httpx.AsyncClient(base_url=runtime_server.base_url, timeout=60.0) as http:
+
+        async def consume(connected: asyncio.Event) -> list[dict[str, Any]]:
+            local = bytearray()
+            async with http.stream(
+                "POST",
+                f"/threads/{thread_id}/stream/events",
+                json={"channels": ["values", "lifecycle"]},
+                headers={"Accept": "text/event-stream"},
+            ) as response:
+                assert response.status_code == 200
+                connected.set()
+                async for chunk in response.aiter_bytes():
+                    local.extend(chunk)
+                    if any(
+                        isinstance(e["data"], dict)
+                        and e["data"].get("method") == "lifecycle"
+                        and (e["data"].get("params") or {}).get("data", {}).get("event") == "failed"
+                        for e in parse_sse(bytes(local))
+                    ):
+                        break
+            return parse_sse(bytes(local))
+
+        connected = asyncio.Event()
+
+        async def start_run() -> str:
+            await connected.wait()
+            run = await sdk_client.runs.create(
+                thread_id,
+                "failing",
+                input={"messages": [{"role": "user", "content": "boom please"}]},
+                stream_mode=["values"],
+                stream_resumable=True,
+            )
+            return run["run_id"]
+
+        starter = asyncio.create_task(start_run())
+        live = await asyncio.wait_for(consume(connected), timeout=30)
+        run_id = await starter
+
+        lifecycles = [
+            e["data"]["params"]["data"]["event"] for e in live if e["data"]["method"] == "lifecycle"
+        ]
+        assert lifecycles[0] == "running" and lifecycles[-1] == "failed", lifecycles
+
+        run: dict[str, Any] | None = None
+        for _ in range(50):
+            run = await sdk_client.runs.get(thread_id, run_id)
+            if run is not None and run["status"] not in ("pending", "running"):
+                break
+            await asyncio.sleep(0.1)
+        assert run is not None and run["status"] == "error"
+        assert run["error"] == "RuntimeError: deterministic boom"
+
+        # A fresh subscriber's replay (page refresh / rejoin) also sees the end.
+        replayed = await asyncio.wait_for(consume(asyncio.Event()), timeout=30)
+        failed = [
+            e
+            for e in replayed
+            if e["data"]["method"] == "lifecycle"
+            and e["data"]["params"]["data"]["event"] == "failed"
+        ]
+        assert failed, [e["data"] for e in replayed]
+        assert failed[-1]["data"]["event_id"] == f"synth:{run_id}:lc||failed"
+
+
 async def test_join_run_stream_after_completion_ends_immediately(sdk_client: Any) -> None:
     """Dev parity: finished run replays nothing on runs.join_stream."""
     thread_id = _tid()

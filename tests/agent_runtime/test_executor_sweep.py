@@ -86,15 +86,32 @@ async def test_startup_sweep_marks_orphans_error_and_fires_webhook(
         await pool.close()
 
     with psycopg.connect(runtime_env) as conn:
-        run_row = conn.execute("SELECT status FROM rt_run WHERE run_id = %s", (run_id,)).fetchone()
+        run_row = conn.execute(
+            "SELECT status, error FROM rt_run WHERE run_id = %s", (run_id,)
+        ).fetchone()
         thread_row = conn.execute(
             "SELECT status FROM rt_thread WHERE thread_id = %s", (thread_id,)
         ).fetchone()
+        event_rows = conn.execute(
+            "SELECT event, data, event_id, seq FROM rt_thread_event WHERE run_id = %s ORDER BY id",
+            (run_id,),
+        ).fetchall()
     assert run_row is not None and thread_row is not None
-    run_status = run_row[0]
+    run_status, run_error = run_row
     thread_status = thread_row[0]
     assert run_status == "error"
+    assert run_error == "orphaned: runtime restarted mid-run"
     assert thread_status == "error"
+
+    # A rejoining client's replay must see the run END: the sweep appends the
+    # terminal lifecycle event (name "failed" — the only error name the SDK's
+    # lifecycleReason() resolves) to the thread's event log.
+    assert len(event_rows) == 1, event_rows
+    event_name, data, event_id, seq = event_rows[0]
+    assert event_name == "lifecycle"
+    assert json.loads(data)["event"] == "failed"
+    assert event_id == f"synth:{run_id}:lc||failed"
+    assert seq == 1
 
     for _ in range(50):
         if _SweepReceiver.received:
@@ -104,6 +121,7 @@ async def test_startup_sweep_marks_orphans_error_and_fires_webhook(
     payload = _SweepReceiver.received[0]
     assert payload["run_id"] == run_id
     assert payload["status"] == "error"
+    assert payload["error"] == "orphaned: runtime restarted mid-run"
 
 
 async def test_completion_receiver_ignores_interrupted() -> None:

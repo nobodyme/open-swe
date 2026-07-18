@@ -487,8 +487,12 @@ class RunExecutor:
                 "graph_id": self.graph_name_for_run(run),
             }
         )
+        # No recursion_limit default: dev injected none (goldens carry no
+        # recursion_limit), so a run-level value wins but an absent one must
+        # fall through to the factory's .with_config binding — the app pins
+        # DEFAULT_RECURSION_LIMIT=9999 there, and an injected default here
+        # silently overrides it (a real run died at 100 steps mid-task).
         config = {**base, "configurable": configurable}
-        config.setdefault("recursion_limit", base.get("recursion_limit", 100))
         return config
 
     async def _execute(self, run: dict[str, Any]) -> None:
@@ -591,7 +595,8 @@ class RunExecutor:
         # webhook + lifecycle emission. A second finalizer (cancel racing the
         # task's own finally, timeout paths) finds the run already terminal
         # and emits nothing.
-        updated = await self._runs.finish_if_active(run_id, status)
+        error_text = f"{type(exception).__name__}: {exception}" if exception is not None else None
+        updated = await self._runs.finish_if_active(run_id, status, error=error_text)
         if updated is None:
             return
         if values is not None:
@@ -599,7 +604,12 @@ class RunExecutor:
 
             await self._threads.set_values(thread_id, _dump(values))
         await self._threads.recompute_status(thread_id)
-        lifecycle_name = "completed" if status == "success" else status
+        # The SDK's lifecycleReason() resolves only completed/failed/
+        # interrupted — any other name is silently dropped and the client
+        # never learns the run ended.
+        lifecycle_name = {"success": "completed", "error": "failed", "timeout": "failed"}.get(
+            status, status
+        )
         with contextlib.suppress(Exception):
             await self._emit(
                 thread_id,
@@ -628,6 +638,15 @@ class RunExecutor:
         orphans = await self._runs.sweep_orphans()
         for run in orphans:
             await self._threads.recompute_status(run["thread_id"])
+            # Terminal lifecycle in the event log too: a rejoining client's
+            # replay must see the run end, not tail a stream that never
+            # resolves.
+            with contextlib.suppress(Exception):
+                await self._emit(
+                    run["thread_id"],
+                    run["run_id"],
+                    lifecycle_event(run["run_id"], "failed", self.graph_name_for_run(run)),
+                )
             await webhooks.send_completion_webhook(run, status="error", exception=None)
         if orphans:
             logger.warning("Startup sweep marked %d orphaned run(s) as error", len(orphans))

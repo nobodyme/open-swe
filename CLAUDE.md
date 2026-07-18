@@ -14,10 +14,8 @@ Dependencies are managed with **uv**. Tests use pytest (`asyncio_mode = "auto"`)
 
 ```bash
 make install            # uv sync --extra dev (pytest, ruff, …)
-make dev                # DEFAULT dev runtime: agent_runtime (MIT, self-hosted) + Docker Postgres on :2024 — serves all graphs + the FastAPI webapp from langgraph.json
-make dev-platform       # the Elastic-licensed `langgraph dev` server (kept during the migration for comparison)
-# env-file semantics differ deliberately: under `make dev` the SHELL wins over `.env` (override=False);
-# under `make dev-platform` (langgraph dev) `.env` overrides the shell.
+make dev                # the dev runtime: agent_runtime (MIT, self-hosted) + Docker Postgres on :2024 — serves all graphs + the FastAPI webapp from langgraph.json
+# under `make dev` the SHELL wins over `.env` (override=False)
 make run                # uvicorn agent.webapp:app --reload --port 8000 (FastAPI only, no LangGraph runtime)
 make test               # uv run pytest -vvv tests/
 make test TEST_FILE=tests/github/test_open_pull_request.py    # single test file
@@ -27,7 +25,7 @@ make format             # ruff format + ruff check --fix
 make typecheck          # basedpyright agent tests
 ```
 
-`langgraph.json` declares three graph entrypoints and the FastAPI app, all served together by `langgraph dev`:
+`langgraph.json` is agent_runtime's config file (`AGENT_RUNTIME_CONFIG` defaults to it). It declares three graph entrypoints and the FastAPI app, all served together by agent_runtime (`make dev`):
 
 | Graph | Entrypoint | Purpose |
 |---|---|---|

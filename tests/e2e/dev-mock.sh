@@ -64,14 +64,9 @@ echo "  LLM is real; Slack/GitHub are mocked. Open two browser profiles to be"
 echo "  two users (Alice owns the plan; Bob can comment + request changes)."
 echo
 
-# RUNTIME switch (same values as the Playwright e2e config):
-#   platform (default) — langgraph dev; embedded — agent_runtime over Postgres.
-if [ "${RUNTIME:-platform}" = "embedded" ]; then
-  E2E_REAL_LLM=1 bash tests/e2e/run-embedded.sh &
-else
-  E2E_REAL_LLM=1 uv run langgraph dev --config tests/e2e/langgraph.e2e.json \
-    --port "${API_PORT}" --no-browser --allow-blocking --no-reload &
-fi
+# agent_runtime over Postgres — the only runtime (the langgraph-dev leg was
+# removed with the langgraph-cli dependency).
+E2E_REAL_LLM=1 bash tests/e2e/run-embedded.sh &
 HARNESS=$!
 trap 'kill "${HARNESS}" 2>/dev/null || true' EXIT INT TERM
 

@@ -98,6 +98,20 @@ _int_builder.add_edge("conclude", END)
 interrupting = _int_builder.compile()
 
 
+# -- failing: raises mid-run (failure-path lifecycle + error persistence) -------
+
+
+async def _fail(state: MessagesState) -> dict[str, Any]:
+    raise RuntimeError("deterministic boom")
+
+
+_fail_builder = StateGraph(MessagesState)
+_fail_builder.add_node("fail", _fail)
+_fail_builder.add_edge(START, "fail")
+_fail_builder.add_edge("fail", END)
+failing = _fail_builder.compile()
+
+
 # -- store_probe: reads/writes the compile-time store from inside a node --------
 
 
@@ -153,3 +167,43 @@ _model_builder.add_node("model", _model_node)
 _model_builder.add_edge(START, "model")
 _model_builder.add_edge("model", END)
 model_call = _model_builder.compile()
+
+
+# -- limited_loop: factory pinning recursion_limit via .with_config -------------
+# Mirrors agent/server.py:get_agent — the factory mutates its config and binds
+# it onto the compiled graph. The executor must let that binding govern when
+# the run specifies no recursion_limit of its own.
+
+
+class LoopState(MessagesState):
+    loops_done: int
+
+
+async def _loop_step(state: LoopState) -> dict[str, Any]:
+    return {"loops_done": int(state.get("loops_done") or 0) + 1}
+
+
+async def _loop_finish(state: LoopState) -> dict[str, Any]:
+    return {"messages": [AIMessage(content=f"looped {state.get('loops_done')}")]}
+
+
+def _loop_route(state: LoopState) -> str:
+    return "step" if int(state.get("loops_done") or 0) < 120 else "finish"
+
+
+_loop_builder = StateGraph(LoopState)
+_loop_builder.add_node("step", _loop_step)
+_loop_builder.add_node("finish", _loop_finish)
+_loop_builder.add_edge(START, "step")
+_loop_builder.add_conditional_edges("step", _loop_route, {"step": "step", "finish": "finish"})
+_loop_builder.add_edge("finish", END)
+_loop_graph = _loop_builder.compile()
+
+
+def limited_loop_factory(config: dict[str, Any]):
+    from typing import cast
+
+    from langchain_core.runnables import RunnableConfig
+
+    config["recursion_limit"] = 300
+    return _loop_graph.with_config(cast(RunnableConfig, config))

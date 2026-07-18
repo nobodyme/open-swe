@@ -13,7 +13,7 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
     if isinstance(kwargs, dict):
         # Dunder keys are runtime-internal (e.g. __transport__), never wire.
         kwargs = {k: v for k, v in kwargs.items() if not k.startswith("__")}
-    return {
+    run = {
         "run_id": str(row["run_id"]),
         "thread_id": str(row["thread_id"]),
         "assistant_id": row["assistant_id"],
@@ -24,6 +24,10 @@ def _serialize(row: dict[str, Any]) -> dict[str, Any]:
         "kwargs": kwargs,
         "multitask_strategy": row["multitask_strategy"],
     }
+    # Only on failure: the success-path goldens pin a run body without the key.
+    if row.get("error") is not None:
+        run["error"] = row["error"]
+    return run
 
 
 class RunsRepo:
@@ -148,16 +152,18 @@ class RunsRepo:
             ).fetchone()
         return _serialize(row) if row else None
 
-    async def finish_if_active(self, run_id: str, status: str) -> dict[str, Any] | None:
+    async def finish_if_active(
+        self, run_id: str, status: str, *, error: str | None = None
+    ) -> dict[str, Any] | None:
         """Terminal transition, exactly once: only from pending/running.
         Returns None when the run was already finalized — the caller must
         then skip webhook/lifecycle emission (double-delivery guard)."""
         async with self._pool.connection() as conn:
             row = await (
                 await conn.execute(
-                    "UPDATE rt_run SET status = %s, updated_at = now() "
+                    "UPDATE rt_run SET status = %s, error = %s, updated_at = now() "
                     "WHERE run_id = %s AND status IN ('pending','running') RETURNING *",
-                    (status, run_id),
+                    (status, error, run_id),
                 )
             ).fetchone()
         return _serialize(row) if row else None
@@ -167,7 +173,8 @@ class RunsRepo:
         async with self._pool.connection() as conn:
             rows = await (
                 await conn.execute(
-                    "UPDATE rt_run SET status = 'error', updated_at = now() "
+                    "UPDATE rt_run SET status = 'error', "
+                    "error = 'orphaned: runtime restarted mid-run', updated_at = now() "
                     "WHERE status IN ('pending','running') RETURNING *"
                 )
             ).fetchall()

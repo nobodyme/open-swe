@@ -2,8 +2,8 @@
 
 These invoke ``get_agent``'s full deepagents graph — real middleware stack,
 real tool wiring, real sandbox backend (local shell in a tmp dir) — with no
-``langgraph dev`` process. Phase 1 reruns them unchanged against
-``agent_runtime`` (docs/fast-api-migration/phase-0.md task 4).
+server process. Phase 1 reran them unchanged against ``agent_runtime``
+(docs/fast-api-migration/phase-0.md task 4).
 """
 
 from __future__ import annotations

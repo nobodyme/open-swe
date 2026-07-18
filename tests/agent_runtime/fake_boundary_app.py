@@ -2,7 +2,7 @@
 
 Runs ONLY in its own interpreter (never imported by pytest): applies the e2e
 boundary patches (fake model, fake tokens, SANDBOX_TYPE=local) exactly the way
-``langgraph dev`` does for the e2e suite, then serves ``agent_runtime`` with
+the e2e webServer does, then serves ``agent_runtime`` with
 the REAL ``langgraph.json`` registry. This is sanctioned alternative (1) from
 the Phase 0 ledger — tests/e2e modules are process-poisonous, so the poison
 stays in this process.

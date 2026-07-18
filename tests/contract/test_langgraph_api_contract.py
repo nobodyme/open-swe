@@ -1,12 +1,12 @@
-"""Contract tests: pin ``langgraph dev``'s observable behavior as the golden
-baseline for the Phase 1 ``agent_runtime`` server.
+"""Contract tests: pin ``agent_runtime`` against the golden baseline recorded
+from ``langgraph dev`` before its removal (docs/fast-api-migration).
 
 Each test exercises an operation the app calls today (MIGRATION.md §1
 inventory; docs/fast-api-migration/phase-0.md task 7) through the same
 transport the app uses — the ``langgraph_sdk`` client or raw ``httpx`` for the
-wire endpoints the dashboard proxies verbatim. Divergences dev exhibits are
-recorded as skips-with-reason (the divergence ledger in golden/README.md), not
-papered over.
+wire endpoints the dashboard proxies verbatim. Deliberate divergences from the
+recorded baseline are skips-with-reason (the divergence ledger in
+golden/README.md), not papered over.
 """
 
 from __future__ import annotations
@@ -344,12 +344,9 @@ async def test_run_create_durable_semantics_and_completion_webhook(
         if _WebhookReceiver.received:
             break
         await asyncio.sleep(0.25)
-    if not _WebhookReceiver.received:
-        pytest.skip(
-            "divergence ledger: langgraph dev did not deliver the completion "
-            "webhook to a loopback URL (platform docs say loopback is rejected; "
-            "record and match actual Phase 1 behavior instead)"
-        )
+    # langgraph dev never delivered to a loopback URL (old ledger entry);
+    # agent_runtime does, contract-pinned — no delivery is a failure.
+    assert _WebhookReceiver.received, "completion webhook was not delivered"
     delivery = _WebhookReceiver.received[0]
     assert delivery["path"].endswith("?token=contract-secret")
     assert_matches_golden("run_complete_webhook_payload.json", delivery["payload"])
@@ -519,19 +516,13 @@ async def test_store_put_get_search_delete(contract_client: Any) -> None:
 
 
 async def test_crons_surface(contract_client: Any) -> None:
-    """analyzer_cron.py / schedules.py create crons; record dev's support."""
-    try:
-        cron = await contract_client.crons.create(
-            "agent",
-            schedule="0 4 * * *",
-            input={"messages": [{"role": "user", "content": "nightly"}]},
-        )
-    except Exception as exc:  # noqa: BLE001
-        pytest.skip(
-            f"divergence ledger: langgraph dev (inmem) does not implement crons "
-            f"({type(exc).__name__}: {exc}); Phase 1 implements them from the "
-            "SDK surface the app uses (crons.create/create_for_thread/search/delete)"
-        )
+    """analyzer_cron.py / schedules.py create crons. langgraph dev (inmem)
+    never implemented them (old ledger entry); agent_runtime must."""
+    cron = await contract_client.crons.create(
+        "agent",
+        schedule="0 4 * * *",
+        input={"messages": [{"role": "user", "content": "nightly"}]},
+    )
     searched = await contract_client.crons.search()
     assert any(c["cron_id"] == cron["cron_id"] for c in searched)
     await contract_client.crons.delete(cron["cron_id"])
@@ -544,22 +535,14 @@ async def test_crons_create_for_thread(contract_client: Any) -> None:
     end_time + timezone — the exact call Phase 1 must serve."""
     thread_id = _tid()
     await contract_client.threads.create(thread_id=thread_id)
-    try:
-        cron = await contract_client.crons.create_for_thread(
-            thread_id,
-            "agent",
-            schedule="30 7 * * *",
-            input={"messages": [{"role": "user", "content": "wakeup"}]},
-            end_time=datetime.now(UTC) + timedelta(days=1),
-            timezone="America/Los_Angeles",
-        )
-    except Exception as exc:  # noqa: BLE001
-        pytest.skip(
-            f"divergence ledger: langgraph dev (inmem) rejected "
-            f"crons.create_for_thread(end_time=…, timezone=…) "
-            f"({type(exc).__name__}: {exc}); Phase 1 implements it regardless "
-            "(agent/tools/schedule_thread_wakeup.py depends on it)"
-        )
+    cron = await contract_client.crons.create_for_thread(
+        thread_id,
+        "agent",
+        schedule="30 7 * * *",
+        input={"messages": [{"role": "user", "content": "wakeup"}]},
+        end_time=datetime.now(UTC) + timedelta(days=1),
+        timezone="America/Los_Angeles",
+    )
     assert cron["thread_id"] == thread_id
     searched = await contract_client.crons.search(thread_id=thread_id)
     assert [c["cron_id"] for c in searched] == [cron["cron_id"]]
@@ -879,9 +862,7 @@ def _shape_for_mode(mode: str, part: Any) -> dict[str, Any]:
 
 @pytest.mark.parametrize("mode", DASHBOARD_STREAM_MODES)
 async def test_run_stream_mode_golden(contract_client: Any, mode: str) -> None:
-    import os
-
-    if mode == "events" and os.environ.get("CONTRACT_RUNTIME") == "embedded":
+    if mode == "events":
         pytest.skip(
             "divergence ledger: run-level stream_mode='events' (astream_events "
             "firehose) has no app caller (D6) and is not wired in agent_runtime; "
