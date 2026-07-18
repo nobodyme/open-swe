@@ -334,7 +334,7 @@ async def test_best_effort_purge_swallows_errors(monkeypatch: pytest.MonkeyPatch
         raise RuntimeError("search failed")
 
     monkeypatch.setattr(wakeup_tool, "purge_expired_wakeup_crons", boom)
-    monkeypatch.setattr(wakeup_tool, "get_client", lambda url: object())
+    monkeypatch.setattr(wakeup_tool, "_langgraph_client", lambda: object())
 
     # The real wrapper must never propagate — a purge failure can't block wakeups.
     await _real_purge_best_effort()

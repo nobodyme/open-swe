@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TypedDict
 
 
@@ -93,6 +94,20 @@ SUPPORTED_MODELS: list[ModelOption] = [
     },
 ]
 
+# Local OpenAI-compatible proxy, offered only when the deployment opts in
+# (LLM_PROVIDER=litellm — the dev/smoke path; docs/fast-api-migration/
+# phase-2.md T4). Never a paid cloud endpoint.
+if os.environ.get("LLM_PROVIDER") == "litellm":
+    SUPPORTED_MODELS.append(
+        {
+            "id": f"litellm:{os.environ.get('LITELLM_MODEL', 'minimax-m3')}",
+            "label": "LiteLLM (local)",
+            "efforts": ["none"],
+            "default_effort": "none",
+            "supports_images": False,
+        }
+    )
+
 SUPPORTED_MODEL_IDS: frozenset[str] = frozenset(m["id"] for m in SUPPORTED_MODELS)
 
 FABLE_MODEL_IDS: frozenset[str] = frozenset(
@@ -122,8 +137,18 @@ def gate_fable_model(
     return model_id, effort
 
 
-DEFAULT_MODEL_ID: str = "openai:gpt-5.5"
-DEFAULT_MODEL_EFFORT: str = "medium"
+# Env-overridable so a local-proxy dev stack (LLM_PROVIDER=litellm) can make
+# its model the no-team-default fallback (phase-2.md T4). Validated below,
+# after SUPPORTED_MODEL_IDS exists — a stray DEFAULT_MODEL_ID in a deployment
+# must fail loudly, not route model traffic somewhere unreviewed.
+DEFAULT_MODEL_ID: str = os.environ.get("DEFAULT_MODEL_ID", "openai:gpt-5.5")
+DEFAULT_MODEL_EFFORT: str = os.environ.get("DEFAULT_MODEL_EFFORT", "medium")
+
+if os.environ.get("DEFAULT_MODEL_ID") and DEFAULT_MODEL_ID not in SUPPORTED_MODEL_IDS:
+    raise RuntimeError(
+        f"DEFAULT_MODEL_ID={DEFAULT_MODEL_ID!r} is not a supported model id "
+        f"(litellm ids also require LLM_PROVIDER=litellm)"
+    )
 
 
 def model_supports_effort(model_id: str, effort: str) -> bool:

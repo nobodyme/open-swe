@@ -295,7 +295,7 @@ async def _notify_slack_processing_error(
         )
 
     try:
-        await common.get_client(url=common.LANGGRAPH_URL).threads.update(
+        await common._make_langgraph_client().threads.update(
             thread_id=thread_id,
             metadata={
                 "latest_run_status": "error",
@@ -557,7 +557,7 @@ async def _process_slack_mention_impl(
     if thread_plan_mode is not None:
         configurable["plan_mode"] = thread_plan_mode
 
-    langgraph_client = common.get_client(url=common.LANGGRAPH_URL)
+    langgraph_client = common._make_langgraph_client()
     is_first_mention = not await common._thread_exists(thread_id)
     await common._upsert_slack_thread_repo_metadata(thread_id, repo_config, langgraph_client)
     # Pass the login resolved above (from the stable Slack user id) so the thread is

@@ -5,7 +5,7 @@ This guide walks you through setting up Open SWE end-to-end: local development, 
 
 Open SWE has two runnable pieces:
 
-- **The backend** — a LangGraph app (three graphs: `agent`, `reviewer`, `analyzer`) plus a FastAPI app (`agent.webapp:app`) that owns the webhooks and the dashboard API. Both are served together by `langgraph dev`.
+- **The backend** — the self-hosted FastAPI `agent_runtime` serves the five graphs declared in `langgraph.json` (`agent`, `reviewer`, `analyzer`, `chat`, and `scheduler`) together with `agent.webapp:app`, which owns webhooks and the dashboard API. `make dev` is the supported default for local development and the same runtime is used in production.
 - **The dashboard** — a TanStack Start + Vite web app in `ui/` (package name `open-swe-dashboard`). It's a thin client over the FastAPI dashboard API (`/dashboard/api/*`): GitHub-login, per-user model/profile settings, team defaults, enabled-repo and review-style management, user mappings, and the Agents chat UI. It's optional for pure webhook-driven use, but recommended.
 
 > **The steps are ordered to avoid forward references.** Each step only depends on things you've already completed.
@@ -14,9 +14,18 @@ Open SWE has two runnable pieces:
 
 - **Python 3.11 – 3.13** (3.14 is not yet supported due to dependency constraints)
 - [uv](https://docs.astral.sh/uv/) package manager
-- [LangGraph CLI](https://docs.langchain.com/langsmith/cli)
-- [ngrok](https://ngrok.com/) (for local development — exposes webhook endpoints to the internet)
+- Docker with Compose (required by `make dev` for the bundled local Postgres)
+- [ngrok](https://ngrok.com/) (only when testing inbound GitHub, Slack, or Linear webhooks locally)
 - [pnpm](https://pnpm.io/) (only if you want to run the dashboard UI locally — see step 8). Node 20+ also works, but `ui/pnpm-lock.yaml` is the canonical lockfile.
+
+### Runtime and licensing
+
+- **The runtime:** `make dev` runs `agent_runtime`, the self-hosted FastAPI
+  runtime backed by Postgres. Its serving path uses the MIT-licensed
+  `langgraph`, `langgraph-sdk`, and checkpoint/store packages. The
+  Elastic-2.0-licensed `langgraph-api` server (installed via
+  `langgraph-cli[inmem]`) is no longer a dependency at all — no ELv2 code is
+  installed, even for development.
 
 ## 1. Clone and install
 
@@ -374,7 +383,7 @@ Users can also override the team/project mapping per-comment by including `repo:
 
 **Slack URL checklist:**
 
-Both Slack URLs must point at the Open SWE backend that serves `agent.webapp:app` (locally, your ngrok URL forwarding to `langgraph dev`; in production, your LangGraph/FastAPI deployment URL), not the dashboard frontend URL.
+Both Slack URLs must point at the Open SWE backend that serves `agent.webapp:app` (locally, your ngrok URL forwarding to `make dev`; in production, your FastAPI backend deployment URL), not the dashboard frontend URL.
 
 - **Event Subscriptions → Request URL:** `https://<your-backend-url>/webhooks/slack`
 - **Interactivity & Shortcuts → Interactivity Request URL:** `https://<your-backend-url>/webhooks/slack/interactivity`
@@ -559,11 +568,10 @@ invalidating already-stored GitHub tokens:
 Make sure ngrok is still running from step 2, then start the backend in a second terminal:
 
 ```bash
-make dev          # uv run langgraph dev
-# or: uv run langgraph dev --no-browser
+make dev          # agent_runtime (self-hosted, MIT) + Docker Postgres on :2024
 ```
 
-`langgraph dev` serves **all three graphs** (`agent`, `reviewer`, `analyzer`) *and* the FastAPI app (`agent.webapp:app`) together on `http://localhost:2024`. The FastAPI app owns both the webhooks and the dashboard API:
+`make dev` (Docker required for the bundled Postgres) serves **all graphs** (`agent`, `reviewer`, `analyzer`, …) *and* the FastAPI app (`agent.webapp:app`) together on `http://localhost:2024`. The FastAPI app owns both the webhooks and the dashboard API:
 
 | Endpoint | Purpose |
 |---|---|
@@ -637,29 +645,44 @@ Other UI scripts: `pnpm run build`, `pnpm run typecheck`, `pnpm run lint`, `pnpm
 
 Production runs the backend and dashboard separately.
 
-**Backend** — deploy on [LangGraph Cloud / Platform](https://langchain-ai.github.io/langgraph/cloud/):
+**Backend** — the self-hosted `agent_runtime` (MIT-licensed stack; see `docs/MIGRATION.md`):
 
-1. Push your code to a GitHub repository
-2. Connect the repo to LangGraph Cloud
-3. Set all environment variables from step 6 in the deployment config. Set `DASHBOARD_BASE_URL` and `LANGGRAPH_URL` to your production URLs (all `https://`). Set `DASHBOARD_API_BASE_URL` to the URL browsers use for dashboard API requests and OAuth callbacks: either the backend URL for direct cross-origin calls, or the dashboard/Vercel URL when a same-origin rewrite proxies `/dashboard/api/*`.
-4. Update your webhook URLs (Linear, Slack, GitHub App) and the GitHub App / Slack OAuth callback URLs to your production URLs (replace the ngrok / localhost values). The dashboard GitHub App callback must be `<DASHBOARD_API_BASE_URL>/dashboard/api/auth/callback`.
+1. Provision a Postgres instance and set `DATABASE_URL` (the runtime creates
+   its own tables plus the LangGraph checkpoint/store tables on first boot).
+2. Run the server: `uv run uvicorn agent_runtime.app:app --host 0.0.0.0 --port 2024`
+   — one process only (the runtime enforces this with a Postgres advisory
+   lock; multiple workers are unsupported by design). It serves every graph
+   and the FastAPI webapp (`agent.webapp:app`, per `langgraph.json`'s
+   `http.app`) on one origin.
+3. Set all environment variables from step 6. Set `DASHBOARD_BASE_URL` and
+   `LANGGRAPH_URL` to your production URLs (all `https://`; `LANGGRAPH_URL`
+   points back at this same deployment). `COMPLETION_WEBHOOK_URL` must be the
+   deployment's absolute, non-loopback `https://…/webhooks/run-complete` URL
+   (loopback URLs are refused and disable run-completion replies). Set
+   `DASHBOARD_API_BASE_URL` to the URL browsers use for dashboard API
+   requests and OAuth callbacks: either the backend URL for direct
+   cross-origin calls, or the dashboard/Vercel URL when a same-origin
+   rewrite proxies `/dashboard/api/*`.
+4. Optional retention knobs: `CHECKPOINT_TTL_MINUTES` (default 43200 = 30
+   days; 0 disables), `CHECKPOINT_SWEEP_INTERVAL_MINUTES` (default 60), and
+   `CHECKPOINT_SWEEP_LIMIT` (default 500) control the checkpoint TTL sweep.
+   Thread metadata and run history are always retained.
+5. Update your webhook URLs (Linear, Slack, GitHub App) and the GitHub App /
+   Slack OAuth callback URLs to your production URLs (replace the ngrok /
+   localhost values). The dashboard GitHub App callback must be
+   `<DASHBOARD_API_BASE_URL>/dashboard/api/auth/callback`.
 
-The `langgraph.json` at the project root defines the three graphs and the HTTP app:
+> `langgraph.json` (graphs + `http.app` + `env`) is `agent_runtime`'s config
+> file (`AGENT_RUNTIME_CONFIG` defaults to it) for both local and production
+> use.
 
-```json
-{
-  "graphs": {
-    "agent": "agent.server:traced_agent",
-    "reviewer": "agent.reviewer:traced_reviewer_agent",
-    "analyzer": "agent.analyzer:traced_analyzer"
-  },
-  "http": {
-    "app": "agent.webapp:app"
-  }
-}
-```
+**Separate SaaS dependencies (out of scope for the runtime migration):**
+`SANDBOX_TYPE=langsmith` sandboxes (step 4c) and LangSmith tracing (step 4a)
+are paid SaaS dependencies untouched by the FastAPI-runtime migration — each
+has its own follow-up. Self-hosters can switch `SANDBOX_TYPE` to another
+provider today; see `docs/CUSTOMIZATION.md`.
 
-**Dashboard** — the `ui/` app deploys to [Vercel](https://vercel.com/). The recommended production setup uses **same-origin** requests to `/dashboard/api/*` (leave `VITE_DASHBOARD_API_BASE_URL` empty), and `ui/vercel.json` rewrites those to the hosted LangGraph deployment. In this mode, set both `DASHBOARD_API_BASE_URL` and the GitHub App dashboard callback URL to the Vercel/dashboard origin (for example, `https://your-dashboard.vercel.app/dashboard/api/auth/callback`). The OAuth callback response then sets the `osw_session` cookie on the dashboard host, and later same-origin `/dashboard/api/*` requests include it. Update the rewrite `destination` in `ui/vercel.json` to your own LangGraph deployment URL.
+**Dashboard** — the `ui/` app deploys to [Vercel](https://vercel.com/). The recommended production setup uses **same-origin** requests to `/dashboard/api/*` (leave `VITE_DASHBOARD_API_BASE_URL` empty), and `ui/vercel.json` rewrites those to your backend deployment. In this mode, set both `DASHBOARD_API_BASE_URL` and the GitHub App dashboard callback URL to the Vercel/dashboard origin (for example, `https://your-dashboard.vercel.app/dashboard/api/auth/callback`). The OAuth callback response then sets the `osw_session` cookie on the dashboard host, and later same-origin `/dashboard/api/*` requests include it. Update the rewrite `destination` in `ui/vercel.json` to your own backend deployment URL.
 
 Alternatively, you can run the dashboard as a direct cross-origin client: set `VITE_DASHBOARD_API_BASE_URL` to the hosted backend origin, set `DASHBOARD_API_BASE_URL` to that same backend origin, and include the dashboard origin in `DASHBOARD_ALLOWED_ORIGINS`.
 

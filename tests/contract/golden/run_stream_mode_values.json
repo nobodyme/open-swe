@@ -1,0 +1,50 @@
+[
+  {
+    "data": {
+      "attempt": 1,
+      "run_id": "<uuid-1>"
+    },
+    "event": "metadata"
+  },
+  {
+    "data": {
+      "messages": [
+        {
+          "additional_kwargs": {},
+          "content": "mode values",
+          "id": "<uuid-2>",
+          "name": null,
+          "response_metadata": {},
+          "type": "human"
+        }
+      ]
+    },
+    "event": "values"
+  },
+  {
+    "data": {
+      "messages": [
+        {
+          "additional_kwargs": {},
+          "content": "mode values",
+          "id": "<uuid-2>",
+          "name": null,
+          "response_metadata": {},
+          "type": "human"
+        },
+        {
+          "additional_kwargs": {},
+          "content": "echo: mode values",
+          "id": "lc_run--<uuid-3>-0",
+          "invalid_tool_calls": [],
+          "name": null,
+          "response_metadata": {},
+          "tool_calls": [],
+          "type": "ai",
+          "usage_metadata": null
+        }
+      ]
+    },
+    "event": "values"
+  }
+]

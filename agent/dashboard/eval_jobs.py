@@ -15,8 +15,6 @@ import os
 from datetime import UTC, datetime
 from typing import Any, Literal, TypedDict
 
-from langgraph_sdk import get_client
-
 from agent.review.eval_store import (
     _HEARTBEAT_STALE_SECONDS,
     DEFAULT_EVAL_PROJECT,
@@ -24,6 +22,7 @@ from agent.review.eval_store import (
     REVIEWER_EVAL_KEY,
 )
 from agent.review.findings import REVIEW_FINDING_CAP
+from agent.utils.thread_ops import langgraph_client
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +61,7 @@ DEFAULT_REVIEWER_EVAL_CONFIG: ReviewerEvalConfig = {
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _now_iso() -> str:

@@ -56,7 +56,7 @@ async def test_update_agent_thread_pr_state_updates_matching_thread() -> None:
     )
     fake_client.threads.update = AsyncMock()
 
-    with patch("agent.webhooks.common.get_client", return_value=fake_client):
+    with patch("agent.webhooks.common._make_langgraph_client", return_value=fake_client):
         await webhook_common.update_agent_thread_pr_state(_pr_payload(state="closed"))
 
     fake_client.threads.search.assert_awaited_once()
@@ -75,7 +75,7 @@ async def test_update_agent_thread_pr_state_skips_reviewer_threads() -> None:
     )
     fake_client.threads.update = AsyncMock()
 
-    with patch("agent.webhooks.common.get_client", return_value=fake_client):
+    with patch("agent.webhooks.common._make_langgraph_client", return_value=fake_client):
         await webhook_common.update_agent_thread_pr_state(_pr_payload(state="closed"))
 
     fake_client.threads.update.assert_not_called()
@@ -89,7 +89,7 @@ async def test_update_agent_thread_pr_state_noop_when_state_unchanged() -> None:
     )
     fake_client.threads.update = AsyncMock()
 
-    with patch("agent.webhooks.common.get_client", return_value=fake_client):
+    with patch("agent.webhooks.common._make_langgraph_client", return_value=fake_client):
         await webhook_common.update_agent_thread_pr_state(_pr_payload(state="closed", merged=True))
 
     fake_client.threads.update.assert_not_called()

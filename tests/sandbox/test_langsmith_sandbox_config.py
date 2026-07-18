@@ -205,7 +205,7 @@ def test_extra_fields_rejects_non_object() -> None:
 
 @pytest.mark.asyncio
 async def test_install_create_extra_fields_merges_only_boxes_post() -> None:
-    calls: list[tuple[str, dict]] = []
+    calls: list[tuple[str, dict | None]] = []
 
     class _FakeHttp:
         async def post(self, url, **kwargs):  # noqa: ANN001, ANN003
@@ -217,7 +217,7 @@ async def test_install_create_extra_fields_merges_only_boxes_post() -> None:
             self._http = _FakeHttp()
 
     client = _FakeClient()
-    _install_create_extra_fields(client, {"_internal_runtime": "v2"})
+    _install_create_extra_fields(cast(AsyncSandboxClient, client), {"_internal_runtime": "v2"})
 
     await client._http.post("https://api/v2/sandboxes/boxes", json={"snapshot_id": "s"})
     await client._http.post("https://api/v2/sandboxes/boxes/abc/start", json={"foo": "bar"})
@@ -237,5 +237,5 @@ async def test_install_create_extra_fields_noop_when_empty() -> None:
             self._http = _FakeHttp()
 
     client = _FakeClient()
-    _install_create_extra_fields(client, {})
+    _install_create_extra_fields(cast(AsyncSandboxClient, client), {})
     assert client._http.post == "sentinel"

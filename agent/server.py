@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 from langgraph.graph.state import RunnableConfig
 from langgraph.pregel import Pregel
 from langgraph.runtime import Runtime
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 warnings.filterwarnings("ignore", module="langchain_core._api.deprecation")
 
@@ -64,6 +65,7 @@ from .integrations.currents_tools import load_currents_tools
 from .integrations.datadog_mcp import load_datadog_tools
 from .integrations.langsmith import _configure_github_proxy, get_async_sandbox_client
 from .integrations.langsmith_tools import load_langsmith_tools
+from .integrations.local import GitHubTokenLocalShellBackend
 from .integrations.notion_mcp import load_notion_tools
 from .integrations.stagehand_browser import load_browser_tools
 from .middleware import (
@@ -154,7 +156,7 @@ from .utils.sandbox_state import (
 )
 from .utils.tracing import AGENT_TRACING_PROJECT, traced_graph_factory
 
-client = get_client()
+client = langgraph_client()
 
 DEFAULT_TOOL_LOADER_TIMEOUT_SECONDS = 5.0
 
@@ -308,8 +310,50 @@ async def _create_sandbox_with_proxy(
             repositories=github_proxy_repositories,
             permissions=permissions,
         )
+    else:
+        await _provision_local_github_token(
+            sandbox_backend,
+            github_proxy_token,
+            thread_id=thread_id,
+            github_proxy_repositories=github_proxy_repositories,
+        )
 
     return sandbox_backend
+
+
+async def _provision_local_github_token(
+    sandbox_backend: SandboxBackendProtocol,
+    github_proxy_token: str | None = None,
+    *,
+    thread_id: str | None = None,
+    github_proxy_repositories: Sequence[str] | None = None,
+) -> None:
+    """Give a local sandbox a real GitHub token for the ``GH_TOKEN=dummy`` sentinel.
+
+    Local sandboxes have no GitHub proxy; the backend substitutes the sentinel
+    with this token inside ``execute()`` so the token never reaches prompts or
+    tool messages. Mirrors the LangSmith proxy configure/refresh lifecycle
+    (installation tokens expire after ~1h). A missing token degrades to the
+    previous unauthenticated behavior instead of failing sandbox setup.
+    """
+    backend = unwrap_sandbox_backend(sandbox_backend)
+    if not isinstance(backend, GitHubTokenLocalShellBackend):
+        return
+    token, expires_at, permissions = await _resolve_proxy_token(github_proxy_token)
+    if not token:
+        logger.warning(
+            "No GitHub token available for local sandbox %s; GH_TOKEN=dummy commands "
+            "will run unauthenticated",
+            backend.id,
+        )
+        return
+    backend.set_github_token(token)
+    record_proxy_token_expiry(
+        thread_id,
+        expires_at,
+        repositories=github_proxy_repositories,
+        permissions=permissions,
+    )
 
 
 async def _refresh_github_proxy(
@@ -319,8 +363,14 @@ async def _refresh_github_proxy(
     thread_id: str | None = None,
     github_proxy_repositories: Sequence[str] | None = None,
 ) -> None:
-    """Refresh GitHub proxy credentials for reused LangSmith sandboxes."""
+    """Refresh GitHub credentials for reused sandboxes (proxy or local token)."""
     if os.getenv("SANDBOX_TYPE", "langsmith") != "langsmith":
+        await _provision_local_github_token(
+            sandbox_backend,
+            github_proxy_token,
+            thread_id=thread_id,
+            github_proxy_repositories=github_proxy_repositories,
+        )
         return
 
     token, expires_at, permissions = await _resolve_proxy_token(github_proxy_token)

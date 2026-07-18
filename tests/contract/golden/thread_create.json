@@ -1,0 +1,13 @@
+{
+  "config": {},
+  "created_at": "<ts>",
+  "metadata": {
+    "owner": "tester",
+    "source": "contract"
+  },
+  "state_updated_at": "<ts>",
+  "status": "idle",
+  "thread_id": "<uuid-1>",
+  "updated_at": "<ts>",
+  "values": null
+}

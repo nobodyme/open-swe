@@ -199,12 +199,16 @@ test.describe("Plan review (HTTP comments)", () => {
     // 7. The agent implements, opens a PR, and links it back in the Slack thread,
     //    echoing the reviewers' feedback — which proves the comments were stored
     //    and harvested server-side on approve.
+    //    Poll on the feedback echo itself: /pull/ alone can be satisfied early
+    //    by a still-running run from a PREVIOUS spec (e.g. full_flow's breakout
+    //    thread finishing after its test ended) posting its own PR reply —
+    //    botMessages() is global, not thread-scoped.
     await expect
       .poll(async () => (await botMessages(request)).join("\n"), {
         timeout: 90_000,
       })
-      .toMatch(/\/pull\//);
-    expect((await botMessages(request)).join("\n")).toMatch(/docstring/);
+      .toMatch(/docstring/);
+    expect((await botMessages(request)).join("\n")).toMatch(/\/pull\//);
 
     const prs = (await (
       await request.get("/mock/github/data")

@@ -1,0 +1,89 @@
+[
+  {
+    "data": {
+      "event_id": "synth:<uuid-1>:lc||running",
+      "method": "lifecycle",
+      "params": {
+        "data": {
+          "event": "running",
+          "graph_name": "agent"
+        },
+        "namespace": [],
+        "timestamp": "<ts-ms>"
+      },
+      "seq": 1,
+      "type": "event"
+    },
+    "event": "lifecycle",
+    "id": "1"
+  },
+  {
+    "data": {
+      "event_id": "<event-1>",
+      "method": "values",
+      "params": {
+        "data": {
+          "messages": [
+            {
+              "content": "stream probe",
+              "id": "<uuid-2>",
+              "type": "human"
+            }
+          ]
+        },
+        "namespace": [],
+        "timestamp": "<ts-ms>"
+      },
+      "seq": 2,
+      "type": "event"
+    },
+    "event": "values",
+    "id": "2"
+  },
+  {
+    "data": {
+      "event_id": "<event-2>",
+      "method": "values",
+      "params": {
+        "data": {
+          "messages": [
+            {
+              "content": "stream probe",
+              "id": "<uuid-2>",
+              "type": "human"
+            },
+            {
+              "content": "echo: stream probe",
+              "id": "lc_run--<uuid-3>-0",
+              "type": "ai"
+            }
+          ]
+        },
+        "namespace": [],
+        "timestamp": "<ts-ms>"
+      },
+      "seq": 3,
+      "type": "event"
+    },
+    "event": "values",
+    "id": "3"
+  },
+  {
+    "data": {
+      "event_id": "synth:<uuid-1>:lc||completed",
+      "method": "lifecycle",
+      "params": {
+        "data": {
+          "event": "completed",
+          "graph_name": "agent"
+        },
+        "namespace": [],
+        "timestamp": "<ts-ms>"
+      },
+      "seq": 4,
+      "type": "event"
+    },
+    "event": "lifecycle",
+    "id": "4"
+  }
+]

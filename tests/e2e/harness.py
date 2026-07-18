@@ -1,4 +1,4 @@
-"""HTTP app for the full-flow E2E (served as langgraph dev's http.app).
+"""HTTP app for the full-flow E2E (served as the e2e config's http.app).
 
 Mounts, on top of the REAL ``agent.webapp`` app:
   - fake GitHub REST API  (/fake-gh/...)   the real open_pull_request hits this

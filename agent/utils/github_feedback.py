@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 import uuid
 from collections.abc import Mapping
 from typing import Any
 
-from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
+
+from agent.utils.thread_ops import langgraph_client as _langgraph_client
 
 from ..review.findings import list_findings
 from .langsmith import create_langsmith_feedback, delete_langsmith_feedback
@@ -17,9 +17,6 @@ from .reviewer_outcomes import outcome_from_score, upsert_finding_outcome
 
 logger = logging.getLogger(__name__)
 
-LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL") or os.environ.get(
-    "LANGGRAPH_URL_PROD", "http://localhost:2024"
-)
 
 GITHUB_FEEDBACK_REACTIONS: dict[str, float] = {
     "+1": 1.0,
@@ -167,7 +164,7 @@ async def process_github_reaction(
     ):
         return
 
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _langgraph_client()
     repo_key = f"{owner}/{repo_name}"
     if await _event_was_processed(langgraph_client, repo_key, delivery_id):
         return

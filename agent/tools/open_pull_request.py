@@ -8,7 +8,8 @@ from urllib.parse import quote
 
 import httpx
 from langgraph.config import get_config
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..dashboard.agent_usage import record_agent_pr_usage
 from ..dashboard.plan_store import get_plan_content
@@ -500,7 +501,7 @@ async def _record_pr_telemetry(
             merged=merged,
         )
         if isinstance(thread_id, str) and thread_id:
-            await get_client().threads.update(
+            await langgraph_client().threads.update(
                 thread_id=thread_id,
                 metadata={
                     "agent_kind": "agent",

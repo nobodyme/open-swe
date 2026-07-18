@@ -5,6 +5,11 @@ const repoRoot = resolve(__dirname, "..", "..");
 const PORT = Number(process.env.E2E_PORT ?? 2024);
 const baseURL = `http://127.0.0.1:${PORT}`;
 
+// The graphs under test are served by agent_runtime (the historical
+// RUNTIME=platform langgraph-dev leg was removed with the langgraph-cli
+// dependency — docs/fast-api-migration/COMPLETENESS.md).
+const webServerCommand = "bash tests/e2e/run-embedded.sh";
+
 export default defineConfig({
   testDir: "./tests",
   globalSetup: "./global-setup.ts",
@@ -31,11 +36,10 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // Real langgraph dev: real agent graph + real webhook routes + the harness
-    // http app (fake GitHub/Slack + mock UIs). Only the LLM is faked.
-    command:
-      "uv run langgraph dev --config tests/e2e/langgraph.e2e.json " +
-      `--port ${PORT} --no-browser --allow-blocking --no-reload`,
+    // Real graph runtime (agent_runtime over Postgres): real agent graph +
+    // real webhook routes + the harness http app (fake GitHub/Slack + mock
+    // UIs). Only the LLM is faked.
+    command: webServerCommand,
     cwd: repoRoot,
     url: `${baseURL}/mock/github/data`,
     reuseExistingServer: !process.env.CI,

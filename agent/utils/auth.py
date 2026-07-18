@@ -12,7 +12,8 @@ import httpx
 import jwt
 from langgraph.config import get_config
 from langgraph.graph.state import RunnableConfig
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from .github_app import get_github_app_installation_token_with_expiry
 from .github_token import (
@@ -26,7 +27,7 @@ from .slack import post_slack_thread_reply
 
 logger = logging.getLogger(__name__)
 
-client = get_client()
+client = langgraph_client()
 
 
 class GitHubUserAuthRequired(RuntimeError):

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections.abc import Mapping
 from typing import Any
 
-from langgraph_sdk import get_client
 from langgraph_sdk.client import LangGraphClient
+
+from agent.utils.thread_ops import langgraph_client as _langgraph_client
 
 from .langsmith import create_langsmith_feedback, delete_langsmith_feedback
 from .reviewer_outcomes import outcome_from_score as _outcome_from_score
@@ -18,9 +18,6 @@ from .slack import lookup_slack_run_mapping
 
 logger = logging.getLogger(__name__)
 
-LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL") or os.environ.get(
-    "LANGGRAPH_URL_PROD", "http://localhost:2024"
-)
 
 FEEDBACK_REACTIONS: dict[str, float] = {
     "+1": 1.0,
@@ -146,7 +143,7 @@ async def process_slack_reaction(
     ):
         return
 
-    langgraph_client = get_client(url=LANGGRAPH_URL)
+    langgraph_client = _langgraph_client()
     if await _event_was_processed(langgraph_client, channel_id, event_id):
         return
 

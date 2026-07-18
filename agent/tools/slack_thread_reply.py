@@ -1,18 +1,14 @@
 import json
-import os
 from typing import Any
 
 from langgraph.config import get_config
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client as _langgraph_client
 
 from ..utils.slack import (
     convert_mentions_to_slack_format,
     post_slack_thread_reply_with_ts,
     store_slack_message_run_mapping,
-)
-
-LANGGRAPH_URL = os.environ.get("LANGGRAPH_URL") or os.environ.get(
-    "LANGGRAPH_URL_PROD", "http://localhost:2024"
 )
 
 
@@ -165,6 +161,6 @@ async def _post_and_store_mapping(
         channel_id, thread_ts, message, blocks=blocks
     )
     if message_ts:
-        langgraph_client = get_client(url=LANGGRAPH_URL)
+        langgraph_client = _langgraph_client()
         await store_slack_message_run_mapping(langgraph_client, channel_id, thread_ts, message_ts)
     return message_ts, slack_error

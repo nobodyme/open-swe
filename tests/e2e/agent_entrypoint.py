@@ -1,8 +1,9 @@
-"""LangGraph graph entrypoint for the E2E dev server.
+"""LangGraph graph entrypoint for the E2E server.
 
 Applies the boundary patches (fake LLM + fake GitHub/Slack), then re-exports the
-REAL traced agent factory. The langgraph dev config points the ``agent`` graph
-here instead of ``agent.server`` so the patches are in effect in the worker.
+REAL traced agent factory. The e2e config (langgraph.e2e.json) points the
+``agent`` graph here instead of ``agent.server`` so the patches are in effect
+in the worker.
 """
 
 from __future__ import annotations

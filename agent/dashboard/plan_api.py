@@ -18,8 +18,9 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from langgraph_sdk import get_client
 from pydantic import BaseModel
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..dispatch import dispatch_agent_run
 from ..utils.slack import post_slack_thread_reply
@@ -65,7 +66,7 @@ class PlanUpdate(BaseModel):
 
 
 async def _thread_metadata(thread_id: str) -> dict[str, Any]:
-    client = get_client()
+    client = langgraph_client()
     try:
         thread = await client.threads.get(thread_id)
     except Exception as exc:  # noqa: BLE001

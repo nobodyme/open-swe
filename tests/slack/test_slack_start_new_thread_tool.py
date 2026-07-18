@@ -112,7 +112,7 @@ async def test_slack_start_new_thread_success(monkeypatch: pytest.MonkeyPatch) -
 
     fake_client = _FakeClient(captured)
     monkeypatch.setattr(slack_breakout_tool, "get_config", _config)
-    monkeypatch.setattr(slack_breakout_tool, "get_client", lambda url: fake_client)
+    monkeypatch.setattr(slack_breakout_tool, "_langgraph_client", lambda: fake_client)
     monkeypatch.setattr(
         slack_breakout_tool, "post_slack_top_level_message_with_ts", fake_post_top_level
     )

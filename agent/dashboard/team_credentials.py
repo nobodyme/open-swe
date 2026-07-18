@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from langgraph_sdk import get_client
 from pydantic import BaseModel, field_validator
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..encryption import decrypt_token, encrypt_token
 
@@ -40,7 +41,7 @@ SUPPORTED_DD_SITES: frozenset[str] = frozenset(
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 class DatadogCredentialsUpdate(BaseModel):

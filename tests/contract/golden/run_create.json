@@ -1,0 +1,56 @@
+{
+  "assistant_id": "<uuid-1>",
+  "created_at": "<ts>",
+  "kwargs": {
+    "checkpoint_during": true,
+    "command": null,
+    "config": {
+      "configurable": {
+        "__after_seconds__": 0,
+        "__request_start_time_ms__": "<ts-ms>",
+        "assistant_id": "<uuid-1>",
+        "graph_id": "agent",
+        "langgraph_auth_permissions": [],
+        "langgraph_auth_user": null,
+        "langgraph_auth_user_id": "",
+        "langgraph_request_id": "<uuid-2>",
+        "run_id": "<uuid-3>",
+        "thread_id": "<uuid-4>",
+        "user_id": ""
+      },
+      "metadata": {
+        "assistant_id": "<uuid-1>",
+        "created_by": "system"
+      }
+    },
+    "context": {},
+    "durability": "sync",
+    "feedback_keys": null,
+    "input": {
+      "messages": [
+        {
+          "content": "webhook probe",
+          "role": "user"
+        }
+      ]
+    },
+    "interrupt_after": null,
+    "interrupt_before": null,
+    "resumable": true,
+    "stream_mode": [
+      "values"
+    ],
+    "subgraphs": false,
+    "temporary": false,
+    "webhook": "http://127.0.0.1:<port>/webhooks/run-complete?token=contract-secret"
+  },
+  "metadata": {
+    "assistant_id": "<uuid-1>",
+    "created_by": "system"
+  },
+  "multitask_strategy": "interrupt",
+  "run_id": "<uuid-3>",
+  "status": "pending",
+  "thread_id": "<uuid-4>",
+  "updated_at": "<ts>"
+}

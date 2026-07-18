@@ -11,7 +11,8 @@ from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import httpx
-from langgraph_sdk import get_client
+
+from agent.utils.thread_ops import langgraph_client
 
 from ..encryption import decrypt_token, encrypt_token
 
@@ -36,7 +37,7 @@ class NotionOAuthError(Exception):
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _is_notion_https_url(url: str) -> bool:

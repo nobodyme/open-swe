@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from langgraph_sdk import get_client
+from agent.utils.thread_ops import langgraph_client
 
 from .review_styles import normalize_repo_full_name
 
@@ -22,7 +22,7 @@ ENABLED_REVIEW_REPOS_KEY = "default"
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 async def list_enabled_review_repos() -> list[str]:

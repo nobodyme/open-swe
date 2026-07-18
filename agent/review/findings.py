@@ -22,8 +22,9 @@ from collections.abc import Callable
 from typing import Any, Literal, TypedDict, cast
 
 from langgraph.config import get_config
-from langgraph_sdk import get_client
 from langgraph_sdk.errors import NotFoundError as LangGraphSDKNotFoundError
+
+from agent.utils.thread_ops import langgraph_client
 
 logger = logging.getLogger(__name__)
 _FINDING_MUTATION_LOCKS: weakref.WeakValueDictionary[tuple[str, int], asyncio.Lock] = (
@@ -349,7 +350,7 @@ async def get_thread_metadata(thread_id: str) -> dict[str, Any]:
 
 
 async def _get_thread_metadata_strict(thread_id: str) -> dict[str, Any]:
-    client = get_client()
+    client = langgraph_client()
     try:
         thread = await client.threads.get(thread_id)
     except LangGraphSDKNotFoundError as exc:
@@ -403,7 +404,7 @@ async def replace_findings(thread_id: str, findings: list[Finding]) -> None:
 
 
 async def _replace_findings_unlocked(thread_id: str, findings: list[Finding]) -> None:
-    client = get_client()
+    client = langgraph_client()
     try:
         await client.threads.update(thread_id=thread_id, metadata={"findings": findings})
     except LangGraphSDKNotFoundError as exc:
@@ -629,7 +630,7 @@ async def set_reviewer_thread_metadata(
     frozen config can't be updated; persisting the head here lets the reviewer
     tools resolve the live head via ``resolve_review_head_sha``.
     """
-    client = get_client()
+    client = langgraph_client()
     metadata: dict[str, Any] = {"kind": REVIEWER_THREAD_KIND}
     if pr is not None:
         metadata["pr"] = pr

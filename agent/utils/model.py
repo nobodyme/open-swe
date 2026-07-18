@@ -122,6 +122,34 @@ def make_model(model_id: str, *, use_gateway: bool | None = None, **kwargs: Unpa
     model_kwargs: dict[str, object] = dict(kwargs)
     model_kwargs.setdefault("max_retries", DEFAULT_MAX_RETRIES)
 
+    if model_id.startswith("litellm:"):
+        # Local OpenAI-compatible proxy (LITELLM_* env; docs/fast-api-migration/
+        # phase-2.md T4). Plain chat-completions — no Responses API, no gateway,
+        # never a paid cloud endpoint. Fail-closed on BOTH gates: without them,
+        # an empty base_url/api_key would silently fall back to
+        # api.openai.com with the shell's real OPENAI_API_KEY.
+        if os.environ.get("LLM_PROVIDER") != "litellm":
+            raise RuntimeError(
+                f"model {model_id!r} requires LLM_PROVIDER=litellm (fail-closed guard)"
+            )
+        base_url = os.environ.get("LITELLM_BASE_URL", "").rstrip("/")
+        if not base_url:
+            raise RuntimeError("LITELLM_BASE_URL is required for litellm: models")
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url}/v1"
+        model_kwargs["base_url"] = base_url
+        # Non-empty placeholder so langchain's OPENAI_API_KEY env fallback
+        # can never engage.
+        model_kwargs["api_key"] = os.environ.get("LITELLM_API_KEY") or "litellm"
+        target = "openai:" + model_id.split(":", 1)[1]
+        key = (model_id, False, None, _freeze_model_kwargs(model_kwargs), _loop_cache_key())
+        cached = _MODEL_CACHE.get(key)
+        if cached is not None:
+            return cached
+        model = init_chat_model(model=target, **cast(dict[str, Any], model_kwargs))
+        _MODEL_CACHE[key] = model
+        return model
+
     if model_id.startswith("openai:"):
         # Direct-provider default: Responses API over the OpenAI websocket base.
         # Gateway routing overrides this below (an HTTP(S) proxy can't carry wss).
@@ -162,6 +190,9 @@ def fallback_model_id_for(primary_model_id: str) -> str | None:
     when the provider has no configured cross-provider fallback (e.g. Google,
     local, or self-hosted providers we don't want to silently route off-host).
     """
+    if primary_model_id.startswith("litellm:"):
+        # Self-hosted proxy: never silently route off-host.
+        return None
     if primary_model_id.startswith("anthropic:"):
         return "openai:gpt-5.6-sol"
     if primary_model_id.startswith("openai:"):

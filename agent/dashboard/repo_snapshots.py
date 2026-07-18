@@ -20,8 +20,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from langgraph_sdk import get_client
 from pydantic import BaseModel, Field, field_validator
+
+from agent.utils.thread_ops import langgraph_client
 
 from .review_styles import normalize_repo_full_name
 
@@ -140,7 +141,7 @@ class RepoSnapshotUpdate(BaseModel):
 
 
 def _client():
-    return get_client()
+    return langgraph_client()
 
 
 def _now_iso() -> str:

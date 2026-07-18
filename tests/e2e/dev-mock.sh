@@ -14,23 +14,36 @@ UI_PORT="${UI_PORT:-3000}"
 API="http://127.0.0.1:${API_PORT}"
 UI="http://127.0.0.1:${UI_PORT}"
 
-# Use a real OpenAI key. The agent talks to OpenAI directly, so a LangSmith
-# gateway key (lsv2_*) stray in the shell won't authenticate — prefer .env's
-# OPENAI_API_KEY unless the shell already holds an OpenAI-looking key (sk-…).
-# Pulled line-by-line, not by sourcing .env, which would clobber the harness's
-# test env (SANDBOX_TYPE, DASHBOARD_*, …).
-case "${OPENAI_API_KEY:-}" in
-  sk-*) : ;;
-  *)
-    if [ -f .env ]; then
-      export OPENAI_API_KEY="$(grep -E '^OPENAI_API_KEY=' .env | head -1 | cut -d= -f2- | tr -d "\"'")"
+if [ "${LLM_PROVIDER:-}" = "litellm" ]; then
+  # Local LiteLLM proxy (never a paid cloud API): export the LITELLM_* vars
+  # from .env line-by-line (sourcing .env would clobber the harness env).
+  for var in LITELLM_BASE_URL LITELLM_API_KEY LITELLM_MODEL; do
+    if [ -z "$(printenv "$var" || true)" ] && [ -f .env ]; then
+      export "$var"="$(grep -E "^${var}=" .env | head -1 | cut -d= -f2- | tr -d "\"'")"
     fi
-    ;;
-esac
-case "${OPENAI_API_KEY:-}" in
-  sk-*) : ;;
-  *) echo "WARNING: OPENAI_API_KEY is not an OpenAI key (sk-…); model calls will 401." >&2 ;;
-esac
+  done
+  export LLM_PROVIDER=litellm
+  export DEFAULT_MODEL_ID="litellm:${LITELLM_MODEL:-minimax-m3}"
+  export DEFAULT_MODEL_EFFORT="none"
+else
+  # Use a real OpenAI key. The agent talks to OpenAI directly, so a LangSmith
+  # gateway key (lsv2_*) stray in the shell won't authenticate — prefer .env's
+  # OPENAI_API_KEY unless the shell already holds an OpenAI-looking key (sk-…).
+  # Pulled line-by-line, not by sourcing .env, which would clobber the harness's
+  # test env (SANDBOX_TYPE, DASHBOARD_*, …).
+  case "${OPENAI_API_KEY:-}" in
+    sk-*) : ;;
+    *)
+      if [ -f .env ]; then
+        export OPENAI_API_KEY="$(grep -E '^OPENAI_API_KEY=' .env | head -1 | cut -d= -f2- | tr -d "\"'")"
+      fi
+      ;;
+  esac
+  case "${OPENAI_API_KEY:-}" in
+    sk-*) : ;;
+    *) echo "WARNING: OPENAI_API_KEY is not an OpenAI key (sk-…); model calls will 401." >&2 ;;
+  esac
+fi
 
 # Single origin = the Vite HMR server ($UI). Agent links, the sign-in redirect,
 # and the same-origin/WS allowlist all point there; the UI calls the API on its
@@ -51,8 +64,9 @@ echo "  LLM is real; Slack/GitHub are mocked. Open two browser profiles to be"
 echo "  two users (Alice owns the plan; Bob can comment + request changes)."
 echo
 
-E2E_REAL_LLM=1 uv run langgraph dev --config tests/e2e/langgraph.e2e.json \
-  --port "${API_PORT}" --no-browser --allow-blocking --no-reload &
+# agent_runtime over Postgres — the only runtime (the langgraph-dev leg was
+# removed with the langgraph-cli dependency).
+E2E_REAL_LLM=1 bash tests/e2e/run-embedded.sh &
 HARNESS=$!
 trap 'kill "${HARNESS}" 2>/dev/null || true' EXIT INT TERM
 

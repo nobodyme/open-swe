@@ -110,7 +110,7 @@ async def test_sandbox_id_metadata_falls_back_to_live_thread(
         lambda: {"metadata": {}},
     )
     monkeypatch.setattr(
-        "agent.utils.sandbox_state.get_client",
+        "agent.utils.sandbox_state.langgraph_client",
         lambda: SimpleNamespace(threads=threads),
     )
 

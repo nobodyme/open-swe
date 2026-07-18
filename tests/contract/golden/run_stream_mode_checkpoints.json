@@ -1,0 +1,187 @@
+[
+  {
+    "data": {
+      "attempt": 1,
+      "run_id": "<uuid-1>"
+    },
+    "event": "metadata"
+  },
+  {
+    "data": {
+      "config": {
+        "configurable": {
+          "__after_seconds__": 0,
+          "__request_start_time_ms__": "<ts-ms>",
+          "assistant_id": "<uuid-2>",
+          "checkpoint_id": "<uuid-3>",
+          "checkpoint_ns": "",
+          "graph_id": "agent",
+          "langgraph_auth_permissions": [],
+          "langgraph_auth_user": null,
+          "langgraph_auth_user_id": "",
+          "langgraph_request_id": "<uuid-4>",
+          "run_id": "<uuid-1>",
+          "thread_id": "<uuid-5>",
+          "user_id": ""
+        }
+      },
+      "metadata": {
+        "parents": {},
+        "source": "input",
+        "step": -1
+      },
+      "next": [
+        "__start__"
+      ],
+      "parent_config": null,
+      "tasks": [
+        {
+          "id": "<uuid-6>",
+          "interrupts": [],
+          "name": "__start__",
+          "state": null
+        }
+      ],
+      "values": {
+        "messages": []
+      }
+    },
+    "event": "checkpoints"
+  },
+  {
+    "data": {
+      "config": {
+        "configurable": {
+          "__after_seconds__": 0,
+          "__request_start_time_ms__": "<ts-ms>",
+          "assistant_id": "<uuid-2>",
+          "checkpoint_id": "<uuid-7>",
+          "checkpoint_ns": "",
+          "graph_id": "agent",
+          "langgraph_auth_permissions": [],
+          "langgraph_auth_user": null,
+          "langgraph_auth_user_id": "",
+          "langgraph_request_id": "<uuid-4>",
+          "run_id": "<uuid-1>",
+          "thread_id": "<uuid-5>",
+          "user_id": ""
+        }
+      },
+      "metadata": {
+        "parents": {},
+        "source": "loop",
+        "step": 0
+      },
+      "next": [
+        "agent"
+      ],
+      "parent_config": {
+        "configurable": {
+          "__after_seconds__": 0,
+          "__request_start_time_ms__": "<ts-ms>",
+          "assistant_id": "<uuid-2>",
+          "checkpoint_id": "<uuid-3>",
+          "checkpoint_ns": "",
+          "graph_id": "agent",
+          "langgraph_auth_permissions": [],
+          "langgraph_auth_user": null,
+          "langgraph_auth_user_id": "",
+          "langgraph_request_id": "<uuid-4>",
+          "run_id": "<uuid-1>",
+          "thread_id": "<uuid-5>",
+          "user_id": ""
+        }
+      },
+      "tasks": [
+        {
+          "id": "<uuid-8>",
+          "interrupts": [],
+          "name": "agent",
+          "state": null
+        }
+      ],
+      "values": {
+        "messages": [
+          {
+            "additional_kwargs": {},
+            "content": "mode checkpoints",
+            "id": "<uuid-9>",
+            "name": null,
+            "response_metadata": {},
+            "type": "human"
+          }
+        ]
+      }
+    },
+    "event": "checkpoints"
+  },
+  {
+    "data": {
+      "config": {
+        "configurable": {
+          "__after_seconds__": 0,
+          "__request_start_time_ms__": "<ts-ms>",
+          "assistant_id": "<uuid-2>",
+          "checkpoint_id": "<uuid-10>",
+          "checkpoint_ns": "",
+          "graph_id": "agent",
+          "langgraph_auth_permissions": [],
+          "langgraph_auth_user": null,
+          "langgraph_auth_user_id": "",
+          "langgraph_request_id": "<uuid-4>",
+          "run_id": "<uuid-1>",
+          "thread_id": "<uuid-5>",
+          "user_id": ""
+        }
+      },
+      "metadata": {
+        "parents": {},
+        "source": "loop",
+        "step": 1
+      },
+      "next": [],
+      "parent_config": {
+        "configurable": {
+          "__after_seconds__": 0,
+          "__request_start_time_ms__": "<ts-ms>",
+          "assistant_id": "<uuid-2>",
+          "checkpoint_id": "<uuid-7>",
+          "checkpoint_ns": "",
+          "graph_id": "agent",
+          "langgraph_auth_permissions": [],
+          "langgraph_auth_user": null,
+          "langgraph_auth_user_id": "",
+          "langgraph_request_id": "<uuid-4>",
+          "run_id": "<uuid-1>",
+          "thread_id": "<uuid-5>",
+          "user_id": ""
+        }
+      },
+      "tasks": [],
+      "values": {
+        "messages": [
+          {
+            "additional_kwargs": {},
+            "content": "mode checkpoints",
+            "id": "<uuid-9>",
+            "name": null,
+            "response_metadata": {},
+            "type": "human"
+          },
+          {
+            "additional_kwargs": {},
+            "content": "echo: mode checkpoints",
+            "id": "lc_run--<uuid-11>-0",
+            "invalid_tool_calls": [],
+            "name": null,
+            "response_metadata": {},
+            "tool_calls": [],
+            "type": "ai",
+            "usage_metadata": null
+          }
+        ]
+      }
+    },
+    "event": "checkpoints"
+  }
+]

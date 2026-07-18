@@ -7,10 +7,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from langgraph.config import get_config
-from langgraph_sdk import get_client
 from langgraph_sdk.schema import Config
 
-from ..utils.thread_ops import langgraph_url
+from agent.utils.thread_ops import langgraph_client as _langgraph_client
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +106,7 @@ async def purge_expired_wakeup_crons(client: Any, *, now: datetime) -> int:
 async def _purge_expired_wakeups_best_effort() -> None:
     """Opportunistically purge expired wakeup crons; never raises."""
     try:
-        client = get_client(url=langgraph_url())
+        client = _langgraph_client()
         deleted = await purge_expired_wakeup_crons(client, now=datetime.now(UTC))
         if deleted:
             logger.info("Purged %d expired thread_wakeup cron(s)", deleted)
@@ -122,7 +121,7 @@ async def _create_wakeup_cron(
     prompt: str,
     configurable: dict[str, Any],
 ) -> dict[str, Any]:
-    client = get_client(url=langgraph_url())
+    client = _langgraph_client()
     schedule = _build_one_shot_cron(fire_time)
     end_time = fire_time + timedelta(seconds=_END_TIME_PADDING_SECONDS)
     run_config: Config = {"configurable": configurable}

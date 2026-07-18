@@ -1,0 +1,17 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "python_version": "3.12",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "echo": "tests.agent_runtime.testgraphs:echo",
+    "slow_busy": "tests.agent_runtime.testgraphs:slow_busy",
+    "interrupting": "tests.agent_runtime.testgraphs:interrupting",
+    "failing": "tests.agent_runtime.testgraphs:failing",
+    "store_probe": "tests.agent_runtime.testgraphs:store_probe",
+    "model_call": "tests.agent_runtime.testgraphs:model_call",
+    "agent": "tests.agent_runtime.testgraphs:echo",
+    "limited_loop": "tests.agent_runtime.testgraphs:limited_loop_factory"
+  }
+}
