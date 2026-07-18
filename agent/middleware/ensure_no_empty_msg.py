@@ -6,6 +6,7 @@ from langchain_core.messages import AIMessage, AnyMessage, ToolMessage
 from langgraph.config import get_config
 from langgraph.runtime import Runtime
 
+from ..utils.think_tags import strip_think_tags
 from .check_message_queue import DASHBOARD_HANDOFF_MARKER
 
 _DASHBOARD_SOURCE = "dashboard"
@@ -79,7 +80,11 @@ def ensure_no_empty_msg(state: AgentState, runtime: Runtime) -> dict[str, Any] |
     last_msg = state["messages"][-1]
     if not isinstance(last_msg, AIMessage):
         return None
-    has_contents = bool(last_msg.text)
+    # Leaked reasoning tags (MiniMax `<mm:think>`, DeepSeek/Qwen `<think>`)
+    # don't count as messaging the user — a thinking-only message must not end
+    # the run. The message itself is left untouched: MiniMax needs the blocks
+    # back verbatim in history.
+    has_contents = bool(strip_think_tags(last_msg.text).strip())
     has_tool_calls = bool(last_msg.tool_calls)
     if not has_tool_calls and not has_contents:
         messages_since_last_human = get_every_message_since_last_human(state)

@@ -1,5 +1,6 @@
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { messageArrivalTimestamp } from "./messageTimestamps";
+import { splitThinkTags } from "./thinkTags";
 import type { BaseMessage, ContentBlock } from "@langchain/core/messages";
 import type { AssembledToolCall, SubagentDiscoverySnapshot } from "@langchain/react";
 
@@ -375,8 +376,13 @@ export function streamMessagesToUi(
       const chunks: Array<Chunk> = [];
       const reasoning = reasoningText(raw);
       if (reasoning) chunks.push({ kind: "reasoning", text: reasoning });
-      const text = raw.text.trim();
-      if (text) chunks.push({ kind: "text", text });
+      // Some models (MiniMax `<mm:think>`, DeepSeek/Qwen `<think>`) leak
+      // reasoning into the text as tagged blocks — render those as collapsible
+      // reasoning chunks instead of raw tags.
+      for (const segment of splitThinkTags(raw.text)) {
+        const segmentText = segment.text.trim();
+        if (segmentText) chunks.push({ kind: segment.kind, text: segmentText });
+      }
 
       for (const toolCall of raw.tool_calls ?? []) {
         const name = toolCall.name || "tool";

@@ -11,6 +11,32 @@ from agent.middleware.ensure_no_empty_msg import (
     ensure_no_empty_msg,
     get_every_message_since_last_human,
 )
+from agent.utils.think_tags import strip_think_tags
+
+
+class TestStripThinkTags:
+    def test_paired_block_removed(self) -> None:
+        assert strip_think_tags("<mm:think>plan things</mm:think>Done.") == "Done."
+
+    def test_plain_think_tag_removed(self) -> None:
+        assert strip_think_tags("<think>hmm</think>Answer") == "Answer"
+
+    def test_multiple_blocks_removed(self) -> None:
+        text = "<think>a</think>one<think>b</think>two"
+        assert strip_think_tags(text) == "onetwo"
+
+    def test_bare_closer_strips_leading_reasoning(self) -> None:
+        assert strip_think_tags("leaked reasoning</mm:think>Visible reply") == "Visible reply"
+
+    def test_unclosed_opener_strips_trailing_reasoning(self) -> None:
+        assert strip_think_tags("Hello<mm:think>stream died mid-thought") == "Hello"
+
+    def test_thinking_only_message_becomes_empty(self) -> None:
+        assert strip_think_tags("<mm:think>let me try heredoc</mm:think>").strip() == ""
+        assert strip_think_tags("<mm:think>never closed").strip() == ""
+
+    def test_text_without_tags_unchanged(self) -> None:
+        assert strip_think_tags("Opened PR #8, all set.") == "Opened PR #8, all set."
 
 
 class TestGetEveryMessageSinceLastHuman:
@@ -190,6 +216,26 @@ class TestEnsureNoEmptyMsgNotify:
         result = ensure_no_empty_msg.after_model(state, self._make_runtime())
 
         assert result is None
+
+    def test_injects_no_op_for_thinking_only_message(self) -> None:
+        thinking_only = AIMessage(content="<mm:think>let me try writing the file in chunks")
+        state: AgentState[Any] = {
+            "messages": [
+                HumanMessage(content="fix the bug"),
+                ToolMessage(content="result", tool_call_id="1", name="bash"),
+                thinking_only,
+            ]
+        }
+
+        with patch(
+            "agent.middleware.ensure_no_empty_msg.get_config",
+            return_value={"configurable": {"source": "dashboard"}},
+        ):
+            result = ensure_no_empty_msg.after_model(state, self._make_runtime())
+
+        assert result is not None
+        assert result["messages"][0].tool_calls[0]["name"] == "no_op"
+        assert result["messages"][0].content == "<mm:think>let me try writing the file in chunks"
 
     def test_skips_confirming_completion_for_dashboard_source(self) -> None:
         ai = AIMessage(content="Hi! How can I help?")

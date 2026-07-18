@@ -19,7 +19,7 @@ socket. What flipped is who owns the front door:
 | Boot command | `make dev` → `uv run langgraph dev` | `make dev` → Docker Postgres + `uvicorn agent_runtime.app:app --reload` |
 | Front process | `langgraph-api` server (Elastic-2.0, from `langgraph-cli[inmem]`) | `agent_runtime/app.py` (FastAPI, MIT-only closure) |
 | Webapp mounting | `langgraph.json` `http.app: agent.webapp:app` — langgraph-api mounts the webapp into itself | `app.py:172-176` — agent_runtime registers its routers first, then mounts `agent.webapp:app` at `/` as a catch-all (Starlette matches in registration order, so runtime paths win; webhooks/dashboard/OAuth fall through) |
-| Dev persistence | `langgraph-runtime-inmem`: in-memory checkpointer, store, and run queue | One Postgres for everything: MIT `AsyncPostgresSaver` (checkpoints), `AsyncPostgresStore` (store), plus agent_runtime's own tables `rt_thread` / `rt_run` / `rt_thread_event` (`agent_runtime/schema.sql`) |
+| Dev persistence | `langgraph-runtime-inmem`: in-memory checkpointer, store, and run queue | One Postgres for everything: MIT `AsyncPostgresSaver` (checkpoints), `AsyncPostgresStore` (store), plus agent_runtime's four owned tables `rt_thread` / `rt_run` / `rt_cron` / `rt_thread_event` (`agent_runtime/schema.sql`; see "The four owned tables" under Flow 3) |
 | Prod persistence | `langgraph up`: Postgres + Redis + durable queue + worker pool | Same single Postgres; single process enforced by a `pg_try_advisory_lock` at boot (`app.py:43-71`) |
 | Run execution | Durable queue; workers poll and pick up runs; interrupted runs auto-resume | `asyncio.create_task` in-process (`executor.py`); no durable queue; a 500ms pickup delay (`AGENT_RUNTIME_PICKUP_DELAY_MS`) models the old queue's latency |
 | Streaming fanout | Broker (in-mem queue in dev / Redis on platform), SSE replay + tail | Durable event log in `rt_thread_event` + in-process fanout (`streams.py`), SSE replay-then-tail with seq/ord dedupe |
@@ -172,6 +172,79 @@ sequenceDiagram
 | Store (profiles, team settings, plans, queues, feedback state…) | langgraph-api store; in-graph `get_store()` and HTTP `/store` hit the same store | MIT `AsyncPostgresStore` — **one instance** shared by the HTTP router and in-graph `get_store()` (identity-tested) |
 | Crons | platform scheduler state | Postgres-persisted, fired by APScheduler (`cron_scheduler.py`); one-shot thread wakeups use `end_time` |
 | TTL | `langgraph.json` `checkpointer.ttl.strategy="delete"` (would drop whole threads; a no-op under dev's inmem) | `ttl_sweep.py`: deletes checkpoint data + events, **keeps** `rt_thread`/`rt_run` (thread metadata is load-bearing app state) — a swept thread reads like a never-run thread |
+
+### The four owned tables (`agent_runtime/schema.sql`)
+
+These are the only tables agent_runtime defines itself (Phase 1 D4 names,
+binding across the phase docs). The checkpoint tables (`checkpoints`,
+`checkpoint_blobs`, `checkpoint_writes`) and the store tables are created by
+`langgraph-checkpoint-postgres`'s own `.setup()` and are deliberately **not**
+in `schema.sql` — agent_runtime never hand-writes SQL against them (the TTL
+sweep goes through `saver.adelete_thread`). The schema is applied idempotently
+in the app lifespan (`CREATE TABLE IF NOT EXISTS`, plus additive
+`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations — pre-production
+"migration-lite", no migration framework).
+
+**`rt_thread`** — one row per conversation thread; what langgraph-api kept in
+its internal thread tables. `thread_id UUID` PK, `status` (`idle` / `busy` /
+`interrupted` / `error`), `metadata JSONB`, `"values" JSONB` (final checkpoint
+values, refreshed at each run's terminal step), timestamps. `metadata` has a
+GIN `jsonb_path_ops` index because thread search is `@>` containment with
+nested keys — this is what `reconcile.py`'s `status="busy"` search and the
+dashboard thread list run against. Two things are load-bearing here:
+
+- `status` is **derived, never stored ad hoc** — `threads_repo.py`'s single
+  `recompute_status(thread_id)` is the only place transitions happen (`busy`
+  if any run is pending/running; else `interrupted` if the latest run was
+  interrupted or a checkpoint holds a pending interrupt; else `error`; else
+  `idle`). Golden-pinned.
+- `metadata` is the app's KV record for the conversation — sandbox id,
+  encrypted GitHub token, Slack/PR links. This is *why* the TTL sweep keeps
+  the row (Flow 3's divergence): dropping it would sever the thread from its
+  sandbox and auth, not just its history.
+
+**`rt_run`** — one row per run; replaces langgraph-api's run table *and* its
+durable queue (a run's whole queue life is just this row's `status`:
+`pending` → `running` → `success` / `error` / `interrupted` / `timeout`).
+`run_id UUID` PK, `thread_id` FK (`ON DELETE CASCADE`), `assistant_id` (which
+`langgraph.json` graph to resolve), `multitask_strategy`, `kwargs JSONB` (the
+verbatim create-payload: input, config, `durability`, and the completion
+`webhook` URL the terminal step POSTs to), `error TEXT` (additive migration).
+Indexed on `(thread_id, status)` — the arbitration and `recompute_status`
+query. The boot-time orphan sweep is a single `UPDATE` here: `pending`/
+`running` rows from a dead process → `error`, one failure webhook each
+(Flow 1's "no auto-resume" semantic change, Phase 1 D2).
+
+**`rt_cron`** — Postgres persistence for what used to be platform scheduler
+state (Flow 4). `cron_id UUID` PK, `assistant_id`, **nullable** `thread_id`
+(NULL = schedule cron, fresh thread per fire; set = `crons.create_for_thread`,
+i.e. thread wakeups), `schedule` + `timezone` for APScheduler's
+`CronTrigger.from_crontab`, `end_time` (the one-shot mechanism — today only
+wakeups set it, which is the fragile guard the Flow 4 gap leans on),
+`payload JSONB` (rebuilt into a run body on fire → same executor path as
+Flow 1), `metadata`, `next_run_date`.
+
+**`rt_thread_event`** — the durable event log; replaces the broker (in-mem
+dev / Redis platform) as *the* stream replay source (Flow 2). One row per
+wire event, with **two orderings** on purpose:
+
+- `id BIGSERIAL` PK — global replay order; formatted into the redis-style
+  `<ms>-<n>` ids the SDK stream endpoints resume from via `Last-Event-ID`.
+- `seq BIGINT NULL` — the per-thread **v2 protocol** sequence, assigned only
+  to events that map to a v2 channel. It's nullable because the same log also
+  carries non-v2 modes (updates, messages-tuple, checkpoints); the goldens pin
+  contiguous v2 seqs, so those rows must not consume v2 numbering.
+
+FK to `rt_run(run_id) ON DELETE CASCADE`; indexed `(thread_id, id)` and
+`(thread_id, seq)` — the two replay queries. This table is the accepted
+write-amplification cost (one row per stream event) of Postgres-only
+replay-then-tail; the TTL sweep prunes it together with checkpoint data.
+
+Deletion lifecycles differ by entry point: `DELETE /threads/{id}` removes the
+`rt_thread` row (cascading `rt_run` → `rt_thread_event`) *and* calls
+`saver.adelete_thread`; the TTL sweep deletes only checkpoint data +
+`rt_thread_event`, keeping `rt_thread`/`rt_run`; store rows are
+namespace-keyed app data and are touched by neither.
 
 ---
 
