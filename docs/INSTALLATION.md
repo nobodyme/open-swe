@@ -94,6 +94,8 @@ Write this down. You'll use it in the callback URL below and again in step 4 whe
      - Members: Read-only — used to verify org membership for the dashboard-login gate via `GET /orgs/{org}/memberships/{username}`. Without this permission that call returns 403, the check fails closed, and **every** dashboard login is rejected.
 4. Under **Subscribe to events**, enable:
    - `Issue comment`
+   - `Pull request` — required for auto-review of opened / ready-for-review PRs and for reviewer watch updates on close/reopen/draft transitions
+   - `Push` — required to re-trigger the reviewer when new commits are pushed to a watched PR
    - `Pull request review`
    - `Pull request review comment`
    - `Check run` — required for CI auto-fix (watching failing GitHub Actions checks on agent PRs)
